@@ -2,6 +2,12 @@
 
 :root {
   color-scheme: light;
+}
+
+/* giscus's own themes declare every variable on `main` (the widget root),
+   so overrides must use a selector at least as specific as `main` —
+   values set on `:root` are inherited and always lose to them. */
+main {
   --color-prettylights-syntax-comment: #67645e;
   --color-prettylights-syntax-constant: #8a4b20;
   --color-prettylights-syntax-entity: #8a4b20;
