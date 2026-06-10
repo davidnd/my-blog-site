@@ -1,3 +1,4 @@
 /giscus-theme.css
   Access-Control-Allow-Origin: https://giscus.app
+  Vary: Origin
   Cache-Control: public, max-age=3600

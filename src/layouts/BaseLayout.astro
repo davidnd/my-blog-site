@@ -22,6 +22,7 @@ const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <title>{pageTitle}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
   </head>
   <body>
@@ -30,7 +31,6 @@ const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
         <a class="site-title" href="/">David Nguyen</a>
         <nav aria-label="Primary navigation">
           <a href="https://www.linkedin.com/in/davidnd" target="_blank">LinkedIn</a>
-          <a href="/rss.xml">RSS</a>
         </nav>
       </header>
       <main>
