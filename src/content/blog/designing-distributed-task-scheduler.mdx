@@ -1,0 +1,256 @@
+---
+title: 'Designing a Distributed Task Scheduler'
+description: 'A production-realistic walkthrough of building a scheduler that fires hundreds of millions of jobs reliably, fairly, and on time.'
+pubDate: '2026-06-06'
+tags: ['distributed-systems', 'architecture', 'scheduling', 'backend']
+---
+
+Almost every backend eventually grows a need to run work *later*: send this email in three days, run this billing rollup every night at 02:00, retry this webhook with backoff, kick off a batch job at midnight UTC. Sprinkle these timers across a hundred services and you get duplicated, fragile, half correct implementations.
+
+A distributed task scheduler centralizes that need: teams hand it a job and a time, and it reliably triggers the job when the time comes. This post walks through how to build one that holds up at scale, including the parts that are easy to get wrong.
+
+## Requirements
+
+Pinning down requirements first is what makes the rest of the design fall out cleanly. The hardest decisions here are the execution guarantee and the accuracy target, because they drive everything downstream.
+
+### Functional requirements
+
+- **One shot immediate**: run as soon as possible.
+- **One shot delayed**: run once at a specific future timestamp.
+- **Recurring**: run on a cron style schedule, for example `0 2 * * *`.
+- Jobs are opaque payloads: a handler reference plus a small blob, up to 64 KB. The scheduler triggers; the worker executes.
+- No ordering guarantees between jobs unless a caller explicitly needs one.
+
+### Scale
+
+| Dimension | Target |
+| --- | --- |
+| Submission rate | 10K/s steady, bursts to 50K/s |
+| Delayed jobs in flight | up to 500M waiting for their fire time |
+| Execution throughput | ~100K executions/s at peak |
+| Recurring schedules | ~5M distinct cron definitions |
+
+The traffic is diurnal and has two nasty spikes: a top of hour thundering herd where millions of cron jobs all say "on the hour", and retry storms when a downstream dependency fails and thousands of jobs all retry on similar schedules.
+
+### Guarantees
+
+- **Accuracy SLA**: scheduled and recurring jobs fire within 5 minutes of their target. Immediate jobs are best effort, bounded by worker availability. A loose window is a deliberate gift: it lets us batch scans and smear spikes.
+- **Delivery guarantee**: at least once. Duplicate executions are not an edge case; they are guaranteed under retries and failovers. Since jobs can have arbitrary side effects like charging a card or sending an email, the scheduler mints a stable idempotency key per logical execution and the handler deduplicates on it. This composes into an *exactly once effect*, which is the strongest honest guarantee for arbitrary external side effects.
+
+## Architecture at a glance
+
+<figure className="architecture-diagram" aria-label="Distributed task scheduler architecture">
+  <svg viewBox="0 0 900 620" role="img">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" />
+      </marker>
+    </defs>
+    <title>Distributed task scheduler architecture</title>
+
+    <g className="diagram-node">
+      <rect x="60" y="46" width="220" height="76" rx="8" />
+      <text x="170" y="78">Internal services</text>
+      <text x="170" y="101" className="diagram-sub">one-shot + scheduled</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="60" y="166" width="220" height="76" rx="8" />
+      <text x="170" y="198">Recurrent job creator</text>
+      <text x="170" y="221" className="diagram-sub">cron expand + jitter</text>
+    </g>
+    <g className="diagram-node diagram-store">
+      <rect x="350" y="92" width="250" height="118" rx="8" />
+      <text x="475" y="128">Timer store</text>
+      <text x="475" y="151" className="diagram-sub">bucketed</text>
+      <text x="475" y="174" className="diagram-sub">PK=(bucket, shard)</text>
+      <text x="475" y="197" className="diagram-sub">SK=(tenant, run_at)</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="644" y="46" width="220" height="76" rx="8" />
+      <text x="754" y="78">Coordinator</text>
+      <text x="754" y="101" className="diagram-sub">etcd / ZK - shard ownership</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="644" y="166" width="220" height="76" rx="8" />
+      <text x="754" y="198">Scanner pool</text>
+      <text x="754" y="221" className="diagram-sub">per-tenant cursor - local DRR</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="350" y="300" width="250" height="76" rx="8" />
+      <text x="475" y="332">Ready queue</text>
+      <text x="475" y="355" className="diagram-sub">per-tenant lanes</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="644" y="300" width="220" height="76" rx="8" />
+      <text x="754" y="344">Dispatcher</text>
+    </g>
+    <g className="diagram-node">
+      <rect x="350" y="452" width="250" height="76" rx="8" />
+      <text x="475" y="484">Worker pool</text>
+      <text x="475" y="507" className="diagram-sub">visibility timeout - idempotent</text>
+    </g>
+    <g className="diagram-node diagram-store">
+      <rect x="60" y="452" width="220" height="76" rx="8" />
+      <text x="170" y="496">Audit sink</text>
+    </g>
+    <g className="diagram-node diagram-store">
+      <rect x="644" y="452" width="220" height="76" rx="8" />
+      <text x="754" y="496">Dead-letter queue</text>
+    </g>
+
+    <path className="diagram-line" d="M 280 84 H 350" />
+    <path className="diagram-line" d="M 280 204 H 350" />
+    <path className="diagram-line" d="M 600 151 H 644 V 204" />
+    <path className="diagram-line diagram-muted" d="M 754 122 V 166" />
+    <path className="diagram-line" d="M 754 242 V 338 H 600" />
+    <path className="diagram-line" d="M 600 338 H 644" />
+    <path className="diagram-line" d="M 754 376 V 490 H 600" />
+    <path className="diagram-line" d="M 350 490 H 280" />
+    <path className="diagram-line" d="M 600 490 H 644" />
+    <path className="diagram-line" d="M 475 452 V 410 H 475 V 376" />
+    <path className="diagram-line" d="M 475 452 C 475 408 210 402 210 242 C 210 226 260 214 350 204" />
+
+    <text x="754" y="146" className="diagram-label">assigns shards</text>
+    <text x="275" y="431" className="diagram-label">retry: re-enqueue with backoff</text>
+    <text x="314" y="478" className="diagram-label">success</text>
+    <text x="612" y="478" className="diagram-label">max retries</text>
+  </svg>
+</figure>
+
+The flow, end to end:
+
+1. Ingestion: services submit one shot and delayed jobs; a recurrent job creator expands cron schedules into concrete occurrences.
+2. Timer store: the durable home for the 500M waiting jobs, indexed by fire time so we can find what is due without scanning everything.
+3. Scanner pool: long running workers that poll the store, find due jobs, and promote them.
+4. Ready queue: holds only jobs whose time has come.
+5. Dispatcher and workers: pull from the queue, execute, and acknowledge.
+6. Retry, DLQ, audit: failures loop back into the timer store with backoff; permanent failures land in a dead-letter queue; completed jobs are recorded for audit.
+
+The single most important idea: a **queue is the wrong abstraction for future work**. A queue answers "what is next." We need "what is due at time T over 500M rows." Those are two different stores, and conflating them is the classic mistake.
+
+## Technology choices
+
+| Component | Technology | Why |
+| --- | --- | --- |
+| Timer store | DynamoDB or Cassandra | Composite key, range scan by sort key, horizontal write scaling, native TTL. Postgres with a partitioned index on `run_at` works at smaller scale but hits single node write and scan limits. |
+| Coordinator | etcd or ZooKeeper | Lease and heartbeat primitives for shard ownership and rebalancing. |
+| Ready queue | A queue with visibility timeout, per message ack, and DLQ: SQS, RabbitMQ, or Redis Streams | Variable duration jobs need per message ack and redelivery, not offset based consumption. Sharded into fixed lanes by tenant hash. |
+| Distributed rate limit | Redis plus Lua token bucket | Atomic, fast caps for the rare hot tenant whose work spans shards. |
+| Audit sink | Append only log to a data lake: Kafka topic, then S3 or a warehouse | Keeps history without bloating the hot operational store. |
+
+## Scaling it
+
+### Time-bucketing and the thundering herd
+
+The timer store is partitioned into fixed time buckets such as 30 minute windows. A job lands in exactly one bucket via `bucket(run_at) = floor(run_at / width)`. The scanner only looks at buckets whose window has opened, so finding due work is a bounded range scan, not a full table scan.
+
+The top of hour herd would still pile millions of jobs onto the `00:00` bucket. The fix is to jitter the stored `run_at` within the SLA window when materializing recurring occurrences, so they never all land on the same instant in the first place. A 5 minute SLA gives us 5 minutes of room to smear.
+
+### Sharding by tenant
+
+Each bucket is split into a fixed number of shards: `shard = hash(tenant_id) % N`. This is time independent, so a tenant always maps to the same shard number across every bucket. The key schema:
+
+```text
+PK = (time_bucket, shard)         # bounded partition count
+SK = (tenant_id, run_at)          # encoded as "{tenant_id}#{run_at}"
+```
+
+Sharding on `tenant_id` rather than `job_id` is a deliberate trade. Hashing on `job_id` spreads load most evenly but scatters each tenant across all shards, which forces *distributed* fairness coordination. Hashing on `tenant_id` keeps each tenant on one shard, which makes fairness and progress tracking local. The cost is load skew: a whale tenant becomes a hot shard, which we fix by sub-sharding only the hot tenants.
+
+Scanners own shard numbers, not buckets. A scanner that owns shard 7 scans `(current_bucket, 7)`, then `(next_bucket, 7)`, and so on. Buckets flow through the shards a scanner already owns, so a new bucket never triggers a reassignment. Rebalancing happens only when scanner membership changes, exactly like Kafka partitions.
+
+### Fairness without starvation
+
+Naively draining the ready queue FIFO lets one noisy tenant block everyone behind it. Fairness is enforced at three points:
+
+- Admission: per tenant quotas, modeled as token buckets, on submission rate and jobs in flight. The durable timer store absorbs the backlog, so the ready queue never gets front loaded by one tenant.
+- Scheduling: the scanner serves tenants with Deficit Round Robin (DRR), a weighted rotation. Because the composite sort key `(tenant_id, run_at)` groups each tenant's jobs into a contiguous in-order range, the scanner can scan each tenant independently with a per tenant cursor. In order *within* a tenant, fair *across* tenants.
+- Execution: cap concurrent executions per tenant so one cannot occupy the whole fleet.
+
+The crucial constraint: a single shared cursor assumes strictly in order processing, but fair selection is out of order. Trying to do both with one cursor silently skips work. Per tenant cursors resolve it.
+
+### Rate limiting the whales
+
+When a single tenant exceeds one shard's throughput, we sub-shard *that tenant* across a small fixed set of shards. Its work now spans scanners, so it needs cross shard control. The key insight: use an absolute rate cap through a shared Redis token bucket, not distributed DRR. Absolute caps are cheap to coordinate; relative fairness across machines is not. Local DRR everywhere, a distributed token bucket only for the handful of whales.
+
+## Making it resilient
+
+Each failure mode below gets handled by design rather than hope. The unifying principle: tolerate failure cheaply through idempotency, buffering, and looseness instead of preventing it expensively.
+
+### Duplicate execution
+
+The worst window: a worker finishes the side effect, then dies before acknowledging. The queue redelivers, and the job runs again. This is unavoidable under at least once delivery, so we do not try to avoid it. The scheduler mints a stable idempotency key per logical execution: `schedule_id + scheduled_fire_time` for recurring jobs. The handler deduplicates on it, ideally at the side effecting boundary, such as a payment API's own idempotency key, or via a transactional inbox for its own database writes.
+
+```python
+# Stable across redeliveries of the same logical fire,
+# distinct across different occurrences of a recurring job.
+def idempotency_key(job):
+    if job.recurring:
+        return f"{job.schedule_id}:{job.scheduled_fire_time.isoformat()}"
+    return job.idempotency_key  # supplied at submission
+```
+
+### Scanner death and rebalancing
+
+Each shard is owned by exactly one scanner at a time, assigned by the coordinator via leases and heartbeats. If a scanner misses heartbeats, its shards are reassigned to a live scanner. "Exclusive" is steady state, not absolute: during a handoff or a zombie owner scenario you can briefly get two owners. That is fine here, because at least once plus idempotency turns a double promotion into wasted work rather than a double effect. If double work were ever expensive, fencing tokens: a monotonically increasing lease number that the cursor store rejects when stale, restore hard exclusivity.
+
+Progress is tracked by a per tenant cursor, an in memory map `{ tenant_id -> last_promoted_run_at }` per `(bucket, shard)`. The exclusive owner is the only writer, so no locks are needed. It lives in memory and is checkpointed periodically, like the Kafka offset model. On rebalance the new owner reloads the checkpoint and resumes; the small re-scan gap is safe because of idempotency.
+
+```text
+loop every tick (bounded by the SLA, e.g. every few seconds):
+    now = wall_clock()
+    for shard in owned_shards:
+        for bucket in [frontier[shard] .. current_bucket(now)]:
+            for tenant in active_tenants(bucket, shard):   # DRR rotation
+                jobs = range_query(
+                    PK = (bucket, shard),
+                    SK between f"{tenant}#{cursor[tenant]}" and f"{tenant}#{now}",
+                    limit = k)
+                promote(jobs)
+                cursor[tenant] = max(run_at in jobs)
+            if now >= bucket_end and fully_drained(bucket, shard):
+                advance_frontier(shard)   # retire this bucket's cursors
+    checkpoint(cursor)
+    heartbeat()
+```
+
+### Retry storms
+
+A retry "in 30 seconds with backoff" is just a delayed job, so retries re-enter the timer store with `run_at = now + backoff`. This reuses the entire scheduling machinery instead of building a parallel retry system. Backoff is exponential with jitter so correlated failures do not re-fire in lockstep. To protect a downstream dependency that is actually down, a circuit breaker opens after a failure threshold, moves to half open to probe recovery, then closes. Spacing retries is not enough on its own; you also have to stop hammering a dependency that cannot respond.
+
+### Poison jobs
+
+A job that fails every time is moved to a dead-letter queue after its retry budget is exhausted. A DLQ nobody watches is a silent graveyard, so it is paired with alerting on DLQ growth and a replay path to re-inject jobs after the underlying fix.
+
+### Backpressure and overload
+
+The ready queue is bounded. When it approaches capacity, the scanner slows promotion, and the durable timer store acts as the buffer: overload manifests as bounded lag, not unbounded queue growth. Under sustained overload the system sheds at the edge by rejecting new submissions with 429s, and by priority by delaying low priority work first. Autoscaling workers on queue depth is the first response; shedding is the backstop when you cannot scale fast enough.
+
+### Clock skew
+
+Scanners run on different hosts with slightly different clocks. With a 5 minute SLA, millisecond skew never threatens accuracy. Where it matters is leases and timeouts, so the rule is: use monotonic time for durations such as lease TTLs and backoff timers, so an NTP step cannot corrupt them, and wall clock for absolute fire times. For anything that needs agreement, lean on the store's server side timestamp and fencing tokens rather than scanner local clocks. The design tolerates skew instead of demanding synchronized clocks.
+
+### Catch-up after downtime
+
+If the scheduler is down across `00:00`, the scanner's bucket frontier sits behind `now` on recovery, and several past buckets are undrained. It drains them oldest first and applies a per job misfire policy: fire all missed occurrences, coalesce to the most recent, or skip to the next. A daily digest should usually skip; a data rollup should usually fire. The catch-up is rate limited so recovery does not turn into a self inflicted denial of service.
+
+Recurring jobs only ever materialize the next occurrence, computed at fire time using the in effect timezone rules, so daylight saving transitions are always correct. The schedule definition keeps its IANA timezone, for example `Asia/Singapore`, never a fixed UTC offset, because the offset moves across the year. A periodic sweep re-materializes any schedule whose next occurrence went missing, so a dropped chain self heals.
+
+## Observability
+
+The core health metric is scheduling lag: `actual_fire_time - scheduled_fire_time`. Emit it per dispatch as a histogram and report percentiles: p50, p95, p99, p999. Averages hide the tail, and the tail is what breaches the SLA. Alert on error budget burn rate: fast burn pages, slow burn tickets, rather than raw spikes. Two leading indicators predict breaches before jobs actually miss: the age of the oldest unprocessed bucket, and ready queue depth.
+
+## Key takeaways
+
+- **Separate future work from ready work.** A time indexed store plus a scanner plus a ready queue, not one big queue.
+- **Idempotency is the load bearing primitive.** It makes at least once safe, makes duplicate promotion harmless, and lets cursors stay best effort.
+- **Shard on tenant, not job id**, to keep fairness and progress tracking local. Sub-shard only the whales.
+- **Fairness lives at admission and scheduling, never as a skip over a shared cursor.** Per tenant cursors plus local DRR.
+- **A loose accuracy SLA is a design lever**, not a weakness. It absorbs herds and skew and lets you batch.
+
+## Conclusion
+
+A task scheduler looks simple from the outside: store a job, fire it later. The depth is in the failure modes, the spikes, and the multi tenant fairness, and almost all of it resolves to one habit: design to tolerate failure cheaply rather than prevent it expensively. Get the timer store, the idempotency contract, and the sharding model right, and the rest of the system has a stable foundation to grow on.
