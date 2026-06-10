@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@astrojs/mdx": "latest",
-    "@astrojs/rss": "latest",
     "astro": "latest"
-  },
-  "devDependencies": {}
+  }
 }

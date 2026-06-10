@@ -40,6 +40,7 @@ const pageDescription =
     <meta name="description" content={pageDescription} />
     <meta name="generator" content={Astro.generator} />
     <title>David Nguyen</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
     <div class="wrap">
@@ -47,7 +48,7 @@ const pageDescription =
         <a class="mast-name" href="/">David Nguyen</a>
         <nav class="mast-nav">
           <a
-            class="mast-rss"
+            class="mast-link"
             href="https://www.linkedin.com/in/davidnd"
             target="_blank"
           >
@@ -154,7 +155,7 @@ const pageDescription =
     color: var(--ink);
     text-decoration: none;
   }
-  .mast-rss {
+  .mast-link {
     font-family: var(--sans);
     font-weight: 500;
     font-size: 13px;
@@ -163,7 +164,7 @@ const pageDescription =
     text-decoration: none;
     transition: color 0.15s ease;
   }
-  .mast-rss:hover {
+  .mast-link:hover {
     color: var(--accent);
   }
   .mast-nav {
@@ -387,7 +388,7 @@ const pageDescription =
 
   /* ---------- focus ---------- */
   .mast-name:focus-visible,
-  .mast-rss:focus-visible,
+  .mast-link:focus-visible,
   .feat-link:focus-visible,
   .tag:focus-visible,
   .arc-link:focus-visible,
