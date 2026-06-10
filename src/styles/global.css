@@ -24,7 +24,7 @@
   --rule-strong: rgba(38, 34, 27, 0.22);
   --tint: rgba(38, 34, 27, 0.035);
   --tint-2: rgba(38, 34, 27, 0.05);
-  --accent: oklch(0.55 0.11 48); /* warm Claude-orange — site accent: links, kicker, hovers */
+  --accent: oklch(0.55 0.11 48); /* warm Claude-orange, site accent: links, kicker, hovers */
 }
 
 * {
