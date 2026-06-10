@@ -11,20 +11,11 @@
 }
 
 /* The "Pick your reaction" popover is absolutely positioned, so it adds no
-   height to the widget. With the comment thread hidden the iframe is short,
-   and the open popover spills past the iframe's bottom edge and gets clipped.
-   Reserve room only while the popover is open; giscus observes its own body
-   size and grows the iframe to fit, then collapses again when it closes, so
-   there is no permanent empty gap. */
-.gsc-main:has(.gsc-reactions-popover.open) {
-  padding-bottom: 16rem;
-}
-
-/* Reactions-only posts have no comment box, so the only sign-in hint is the
-   one inside the reaction popover, which giscus renders as just "Sign in to
-   add your reaction." Append " with GitHub" to that link (the sole anchor in
-   the popover) so visitors know which account they need. Stays inside the
-   link, so it remains clickable. */
-.gsc-reactions-popover a.color-text-link::after {
-  content: " with GitHub";
+   height to the widget. With the comment thread hidden the iframe would be
+   short and the popover would clip. Reserve a fixed height up front (the same
+   role the comment thread plays on full posts) so the popover simply overlays
+   this space when it opens, instead of growing the iframe and pushing the page
+   down. The reserved area sits empty below the reaction bar. */
+.gsc-main {
+  min-height: 21rem;
 }
