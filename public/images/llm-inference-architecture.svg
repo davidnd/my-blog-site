@@ -1,0 +1,99 @@
+<svg viewBox="0 0 1280 780" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowReturn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="780" fill="#ffffff"/>
+  <text x="640" y="40" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">Multi-Tenant LLM Inference Platform</text>
+  <text x="640" y="64" text-anchor="middle" font-size="13" fill="#64748b">Request path (solid) and token stream (dashed). KV cache is the binding constraint.</text>
+
+  <!-- Users -->
+  <rect x="40" y="330" width="110" height="70" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="95" y="370" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Users</text>
+
+  <!-- API Gateway / LB -->
+  <rect x="195" y="316" width="135" height="98" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="262" y="356" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">API Gateway</text>
+  <text x="262" y="375" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">Load Balancer</text>
+
+  <!-- Streaming Nodes (top) -->
+  <rect x="400" y="92" width="225" height="116" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="512" y="124" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Streaming Nodes</text>
+  <text x="512" y="148" text-anchor="middle" font-size="12" fill="#64748b">holds client socket</text>
+  <text x="512" y="166" text-anchor="middle" font-size="12" fill="#64748b">bounded per-conn buffer</text>
+  <text x="512" y="190" text-anchor="middle" font-size="12" fill="#64748b">slow client: disconnect + retry</text>
+
+  <!-- Application servers -->
+  <rect x="400" y="440" width="200" height="96" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="500" y="474" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Application Servers</text>
+  <text x="500" y="496" text-anchor="middle" font-size="12" fill="#64748b">rate-limit check</text>
+  <text x="500" y="514" text-anchor="middle" font-size="12" fill="#64748b">admission guard (shed at gate)</text>
+
+  <!-- Redis -->
+  <rect x="660" y="300" width="185" height="100" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="752" y="330" text-anchor="middle" font-size="13" font-weight="600" fill="#9a3412">Shared Store (Redis)</text>
+  <text x="752" y="352" text-anchor="middle" font-size="12" fill="#7c2d12">per-tenant counter</text>
+  <text x="752" y="370" text-anchor="middle" font-size="12" fill="#7c2d12">req_id to streaming node</text>
+  <text x="752" y="388" text-anchor="middle" font-size="11.5" fill="#9a3412">fail open if down</text>
+
+  <!-- Global Router -->
+  <rect x="660" y="455" width="185" height="92" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="752" y="486" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">Global Router</text>
+  <text x="752" y="508" text-anchor="middle" font-size="12" fill="#64748b">power-of-two choices</text>
+  <text x="752" y="526" text-anchor="middle" font-size="12" fill="#64748b">replica rejects, router retries</text>
+
+  <!-- GPU Fleet -->
+  <rect x="905" y="250" width="335" height="320" rx="12" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="1072" y="282" text-anchor="middle" font-size="15" font-weight="700" fill="#3730a3">GPU Fleet</text>
+
+  <rect x="930" y="300" width="285" height="250" rx="10" fill="#ffffff" stroke="#c7d2fe" stroke-width="1.5"/>
+  <text x="1072" y="328" text-anchor="middle" font-size="13" font-weight="600" fill="#3730a3">Replica  (x N)</text>
+  <line x1="950" y1="342" x2="1195" y2="342" stroke="#e0e7ff" stroke-width="1"/>
+  <text x="950" y="366" font-size="12" fill="#1e293b">Per-replica iteration scheduler</text>
+  <text x="962" y="384" font-size="11.5" fill="#64748b">(single owner of the batch)</text>
+  <text x="950" y="410" font-size="12" fill="#1e293b">Continuous batching</text>
+  <text x="962" y="428" font-size="11.5" fill="#64748b">+ chunked prefill (mixed batch)</text>
+  <text x="950" y="454" font-size="12" fill="#1e293b">KV cache</text>
+  <text x="962" y="472" font-size="11.5" fill="#64748b">binding constraint, pins sequence</text>
+  <text x="950" y="498" font-size="12" fill="#1e293b">Fairness: DRR on KV-cache-seconds</text>
+  <text x="950" y="524" font-size="12" fill="#1e293b">Tier floors + shared burst pool</text>
+  <text x="962" y="542" font-size="11.5" fill="#64748b">soft, reclaimable via preemption</text>
+
+  <!-- REQUEST PATH arrows (solid) -->
+  <!-- Users -> Gateway -->
+  <line x1="150" y1="365" x2="193" y2="365" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <!-- Gateway -> Streaming (establish conn) -->
+  <path d="M 300 316 C 320 250, 360 180, 398 158" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="300" y="232" font-size="11.5" fill="#64748b">establish stream conn</text>
+  <!-- Gateway -> App servers -->
+  <path d="M 290 414 C 320 450, 350 470, 398 478" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="300" y="452" font-size="11.5" fill="#64748b">request</text>
+  <!-- App servers -> Redis (rate limit / map) -->
+  <path d="M 580 440 C 620 410, 640 380, 658 360" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="566" y="416" font-size="11.5" fill="#64748b">check limit, map req_id</text>
+  <!-- App servers -> Global router (admit) -->
+  <path d="M 600 496 C 630 502, 645 502, 658 502" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="600" y="556" font-size="11.5" fill="#64748b">admit (+ node addr)</text>
+  <!-- Global router -> GPU fleet (place) -->
+  <path d="M 845 498 C 875 480, 890 450, 903 430" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="846" y="470" font-size="11.5" fill="#64748b">place on replica</text>
+
+  <!-- RETURN PATH (dashed emerald) -->
+  <!-- GPU fleet -> Streaming nodes (direct token push) -->
+  <path d="M 905 300 C 760 220, 680 175, 627 162" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowReturn)"/>
+  <text x="640" y="250" font-size="11.5" fill="#047857">token (req_id) pushed direct, no queue</text>
+  <!-- Streaming nodes -> Users (stream) -->
+  <path d="M 400 132 C 260 110, 150 200, 110 326" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowReturn)"/>
+  <text x="150" y="150" font-size="11.5" fill="#047857">stream tokens</text>
+
+  <!-- Legend -->
+  <line x1="40" y1="720" x2="80" y2="720" stroke="#475569" stroke-width="1.8"/>
+  <text x="88" y="724" font-size="12" fill="#475569">request path</text>
+  <line x1="220" y1="720" x2="260" y2="720" stroke="#059669" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="268" y="724" font-size="12" fill="#047857">token stream (latency-critical, direct)</text>
+</svg>

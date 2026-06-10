@@ -1,0 +1,129 @@
+---
+title: 'Designing a Multi-Tenant LLM Inference Platform'
+description: 'Why serving LLMs breaks classic API intuitions, and how to design around the physics: KV cache, continuous batching, placement under uncertainty, and fairness.'
+pubDate: '2026-06-09'
+tags: ['systems', 'system-design', 'llm', 'inference', 'gpu']
+---
+
+An LLM inference API looks like an ordinary web service from the outside: an HTTP request goes in, tokens stream back. Inside, almost every classic intuition is wrong. The work is only efficient in giant batches, capacity is capped by memory you measure in gigabytes, and a single request can hold a GPU hostage for minutes.
+
+This post walks through the design of a multi-tenant inference platform: queueing and batching requests across a GPU fleet, streaming tokens back, and enforcing per-tenant rate limits, fairness, and latency SLAs. The thread running through all of it is simple. You have to respect the physics before you draw a single box.
+
+## The physics you do not get to negotiate
+
+Four facts shape everything else.
+
+**Two-phase execution.** Generating text has two phases with opposite resource profiles:
+
+- **Prefill** processes the entire prompt in one parallel forward pass. It is compute-bound.
+- **Decode** then generates output one token at a time, each step a tiny forward pass. It is memory-bandwidth-bound.
+
+A batch tuned for one phase is bad for the other.
+
+**KV cache is the binding constraint.** To avoid recomputing attention over the whole history on every step, each sequence caches its Key and Value vectors (the KV cache) in GPU memory, and that cache grows by one token's worth every decode step. At roughly half a megabyte per token for a 7B-class model, a single 4,000-token sequence holds about 2 GB. On an 80 GB GPU, after the model weights, that leaves room for only a few dozen concurrent sequences. Capacity is capped by memory, the cap is dynamic, and it is small. Think tens of sequences per very expensive GPU, not thousands of requests per second.
+
+**Output length is unknown at admission.** You cannot know whether a request will produce 10 tokens or 10,000. Classic scheduling assumes a known service time. Here you have none.
+
+**The SLA is two numbers in tension.** Time to first token (TTFT) and time per output token (TPOT, the inter-token latency). Batching harder improves throughput and hurts both.
+
+Put it together: decode wastes the GPU unless you batch, batching needs a queue, memory caps the batch at tens of sequences, and scarcity plus sharing plus long requests force you to schedule who gets those slots. That chain is why this is not a stateless API.
+
+## The SLA contract comes first
+
+Before any architecture, commit numbers, because they decide how aggressively you are allowed to batch.
+
+- **Paid tier:** TTFT under 2s, TPOT 40ms (about 25 tokens/sec).
+- **Free tier:** TTFT under 5s, TPOT 80ms (about 12 tokens/sec).
+
+The useful insight here is that once TTFT is fast, users tolerate a slower stream, because human reading speed sits well below either number. So loosen TPOT on purpose. A looser TPOT lets you build bigger batches, and bigger batches are cheaper per token. Free tier at 80ms can be packed much harder than paid at 40ms. The SLA is also a cost lever.
+
+## Architecture at a glance
+
+<figure className="architecture-diagram">
+  <img src="/images/llm-inference-architecture.svg" alt="Architecture diagram of the multi-tenant LLM inference platform showing the request path and the direct token stream return path" />
+</figure>
+
+The request path, end to end:
+
+- Users hit the API gateway, which establishes the streaming connection on a streaming node and routes the request to an application server.
+- The application server runs the rate-limit and admission check, attaches the streaming node's address to the request, then hands it to the global router.
+- The global router places the request on a GPU replica.
+- Each replica runs its own iteration-level scheduler doing continuous batching with chunked prefill.
+- As tokens are produced, each one is tagged with its request id and pushed straight back to the streaming node that owns the client socket. There is no durable queue on the token path.
+
+Two ideas do most of the heavy lifting: continuous batching with chunked prefill on the GPU, and a two-level scheduler made of global placement plus per-replica iteration scheduling.
+
+## Continuous batching and chunked prefill
+
+The naive design runs a static batch: collect N requests, prefill them together, decode them together, return them together. It wastes the GPU, because requests finish at different times and one long prefill stalls everything.
+
+The modern approach interleaves at the iteration level. Every iteration, a single per-replica scheduler builds a mixed batch: a few prefill chunks plus many decode steps, sized so the iteration fits the TPOT budget. Chunked prefill splits a long prompt into token-sized chunks, so a big prompt cannot monopolize an iteration and stall the decodes riding along with it.
+
+Chunk size is the TTFT-versus-TPOT dial. Bigger chunks finish prefill in fewer iterations (better TTFT) but fatten every iteration (worse TPOT for co-running decodes). Steer it on measured iteration time against the budget, not on a fixed value.
+
+This collapses any notion of separate prefill and decode stages into one loop. It also creates a hard constraint: a sequence's KV cache lives in exactly one replica's memory, so the sequence is pinned to that replica for its whole life. Moving it would mean shipping gigabytes between GPUs, which blows the latency budget. No migration. Placement is irreversible.
+
+## Placement is a bet under uncertainty
+
+Because placement is irreversible and you do not know the output length, admission is a one-shot bet. You cannot cleanly reserve memory for the output:
+
+- Reserving for `max_tokens` packs almost nothing, because callers set it high just in case.
+- Predicting the length is unreliable, and a wrong guess means an out-of-memory failure mid-generation.
+
+So admit optimistically. Reserve nothing for output, and when the KV cache actually fills mid-flight, preempt a sequence. The victim's cache is either recomputed later (you lose its prefill and it re-queues) or swapped to host RAM over the slower PCIe bus. If a preempted request is already past its SLA, kill it and return an error rather than limp along.
+
+For the router itself, do not chase a perfect global view. Replica memory changes at iteration speed, so any central snapshot is stale the moment you read it. Two cheaper and more robust ideas:
+
+- **Power-of-two choices.** Sample two replicas, send to the lighter one. This avoids hotspots with almost no shared state.
+- **Replica as source of truth.** The router places approximately, and the replica rejects if it cannot actually fit the sequence. The router then retries elsewhere, with a retry budget so a globally full fleet does not turn into a retry storm.
+
+Global routers can run as many instances. The per-replica iteration scheduler cannot, because two things cannot decide one GPU's next forward pass.
+
+## Streaming tokens back
+
+The obvious move is to route tokens through a message queue back to clients. Do not. At one token every 40ms across thousands of streams, a durable queue adds latency and jitter you cannot afford, and the durability buys nothing. A lost token cannot be replayed, since the cache has already moved on, and if the socket drops, the whole stream is gone anyway.
+
+Instead, carry the streaming node's address with the request. The replica pushes each token, tagged with its request id, directly to that node, which maps it to the local socket and streams it out.
+
+Backpressure does not disappear, it relocates. The GPU generates at the batch's cadence, indifferent to any one client's speed. A slow client cannot be allowed to stall the batch, so the streaming node keeps a bounded per-connection buffer. If a client cannot keep up, disconnect it with an explicit error and let it retry, rather than dropping tokens and delivering a broken response.
+
+## Fairness and multi-tenancy
+
+Rate limiting and fairness are different problems, and conflating them is the most common mistake.
+
+**Rate limiting** caps a tenant's absolute usage, measured in tokens per minute. Enforce it early, at the application server, before any GPU work. You will not know output tokens until generation finishes, so the counter lags by the in-flight work and boundary requests slip slightly over. That is acceptable, because cutting a response off mid-stream to enforce an exact count is worse for users than a small overage. To stop abuse of that tolerance, cap the overage and carry the excess as debt into the next window. Keep the counter in a shared store, and for the largest tenants use local approximate counters synced asynchronously, to avoid a hot key.
+
+**Fairness** is about allocating contested capacity when every tenant is under its limit but their sum exceeds the fleet, which it always does, because you oversubscribe. The right unit is not requests, and not GPU-seconds (batch latency is shared, so it is not cleanly attributable to one tenant). It is **KV-cache-seconds**: how much of the binding resource a tenant holds, and for how long. That metric is cleanly attributable, since each sequence owns its own blocks, and it tracks the actual scarce resource. A deficit round robin scheduler then hands each tenant a fair share of KV-cache-seconds.
+
+Tiers layer on top of that:
+
+- Each tier gets a **reserved floor** the other cannot invade, so paid is protected and free never fully starves.
+- The remainder is a **shared burst pool**, allocated by priority (paid first) with aging, so a waiting free request rises over time rather than starving forever.
+- Floors are **soft and reclaimable**: an idle paid floor can be borrowed by free and reclaimed by preempting the borrower, so guarantees do not strand capacity.
+
+One clarification that trips people up: priority only bites at two moments, admission (who gets a slot) and eviction (who is dropped first). Inside a running batch, every sequence decodes at the same cadence. You cannot make a paid token arrive faster than a free one in the same step.
+
+## Overload
+
+When the fleet is full, drop rather than queue. A fast 503 with a retry hint beats an uncertain wait that blows the TTFT SLA anyway. Drop the whole request before any chunk runs, so you never burn GPU work on output you will discard. Shed lowest priority first: free before paid, and never the contractually isolated enterprise tenants.
+
+What signals overload? Not HBM utilization. You want that near 100% all the time, since idle memory is wasted money. Use the SLA itself, but treat a latency breach as a lagging signal and prefer leading indicators: queue depth, rejection rate, the latency trend. A TTFT breach means admission congestion, so stop admitting. A TPOT breach means decode congestion, so shrink batches and reroute off hot replicas.
+
+One subtlety closes the loop. The rate limiter must be a non-critical dependency. If its store goes down, fail open and keep serving, because a blind limiter is not a full fleet, and failing closed would turn a dependency hiccup into a total outage over idle GPUs. Fairness still holds, because the deficit round robin accounting lives at the scheduler, not in the limiter.
+
+## What this design does not cover yet
+
+Honest scope. A production system also needs:
+
+- **Autoscaling and cold start.** Loading weights takes tens of seconds to minutes, so you cannot scale into a spike. That forces over-provisioning, pre-warming, and admission control as the real spike defense.
+- **Failure handling.** A worker dying mid-generation loses the KV cache and the partial stream, with no replay. Recovery, health checks, and draining for deploys are a design of their own.
+- **Prefix caching.** Shared system prompts can have their KV computed once and reused, which is a large efficiency win and a tenant-isolation hazard if cache is shared across tenants.
+- **Model multiplexing.** Which models live on which GPUs, how they are swapped, and how requests route by model.
+
+## Takeaways
+
+- **Respect the physics first.** KV cache is the binding constraint, not QPS, and output length is unknown. Say that out loud before drawing boxes.
+- **The SLA is a cost lever.** Loosen TPOT where users will not notice and batch harder.
+- **Keep mechanisms precise.** Rate limiting is not fairness. Priority is not a guarantee. A floor is.
+- **Prefer the minimal robust mechanism.** Power-of-two choices and reject-retry beat a perfect global view you cannot keep fresh.
+- **Measure fairness in the binding resource.** KV-cache-seconds, not requests and not GPU-seconds.

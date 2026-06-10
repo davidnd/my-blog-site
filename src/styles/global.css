@@ -389,6 +389,13 @@ h3 {
   background: var(--surface);
 }
 
+.architecture-diagram img {
+  min-width: 1040px;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
 .diagram-node rect {
   fill: var(--code-bg);
   stroke: var(--rule-strong);
