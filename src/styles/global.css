@@ -237,7 +237,7 @@ h3 {
 .post-header h1 {
   max-width: 720px;
   margin: 0;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 700;
 }
 
@@ -307,12 +307,12 @@ h3 {
 
 .prose h2 {
   margin-top: 2.1em;
-  font-size: 34px;
+  font-size: 27px;
 }
 
 .prose h3 {
   margin-top: 1.8em;
-  font-size: 24px;
+  font-size: 21px;
 }
 
 .prose p,
