@@ -33,6 +33,9 @@ const formattedDate = new Intl.DateTimeFormat("en", {
     <div class="prose">
       <slot />
     </div>
-    <GiscusComments />
+    <GiscusComments
+      comments={post.data.comments}
+      reactions={post.data.reactions}
+    />
   </article>
 </BaseLayout>

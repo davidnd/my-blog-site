@@ -1,27 +1,42 @@
 ---
+interface Props {
+  comments?: boolean;
+  reactions?: boolean;
+}
+const { comments = true, reactions = true } = Astro.props;
+
 const repo = import.meta.env.PUBLIC_GISCUS_REPO ?? "davidnd/my-blog-site";
 const repoId = import.meta.env.PUBLIC_GISCUS_REPO_ID ?? "R_kgDOSyNFhA";
 const category = import.meta.env.PUBLIC_GISCUS_CATEGORY ?? "Announcements";
 const categoryId = import.meta.env.PUBLIC_GISCUS_CATEGORY_ID ?? "DIC_kwDOSyNFhM4C-201";
-const enabled = Boolean(repo && repoId && category && categoryId);
+const configured = Boolean(repo && repoId && category && categoryId);
+const enabled = configured && (comments || reactions);
+
+// Reactions-only posts get a variant theme that hides the comment region.
+// They also drop the section heading entirely, since giscus already renders
+// its own "N reactions" label and a separate "Comments" heading reads wrong.
+const themeFile = comments ? "/giscus-theme.css" : "/giscus-theme-reactions.css";
 ---
 
 {
   enabled ? (
     <section
       class="comments"
-      aria-labelledby="comments-title"
+      aria-label={comments ? undefined : "Reactions"}
+      aria-labelledby={comments ? "comments-title" : undefined}
       data-giscus-comments
       data-repo={repo}
       data-repo-id={repoId}
       data-category={category}
       data-category-id={categoryId}
+      data-reactions={reactions ? "1" : "0"}
+      data-theme-file={themeFile}
     >
-      <h2 id="comments-title">Comments</h2>
+      {comments && <h2 id="comments-title">Comments</h2>}
       <div class="giscus" />
     </section>
   ) : (
-    import.meta.env.DEV && (
+    import.meta.env.DEV && !configured && (
       <section class="comments comments-disabled" aria-labelledby="comments-title">
         <h2 id="comments-title">Comments</h2>
         <p>
@@ -38,7 +53,7 @@ const enabled = Boolean(repo && repoId && category && categoryId);
 
   if (comments) {
     const script = document.createElement("script");
-    const themeUrl = new URL("/giscus-theme.css", window.location.origin);
+    const themeUrl = new URL(comments.dataset.themeFile, window.location.origin);
 
     script.src = "https://giscus.app/client.js";
     script.async = true;
@@ -49,7 +64,7 @@ const enabled = Boolean(repo && repoId && category && categoryId);
     script.setAttribute("data-category-id", comments.dataset.categoryId);
     script.setAttribute("data-mapping", "pathname");
     script.setAttribute("data-strict", "0");
-    script.setAttribute("data-reactions-enabled", "1");
+    script.setAttribute("data-reactions-enabled", comments.dataset.reactions);
     script.setAttribute("data-emit-metadata", "0");
     script.setAttribute("data-input-position", "bottom");
     script.setAttribute("data-theme", themeUrl.toString());

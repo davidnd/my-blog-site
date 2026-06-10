@@ -1,0 +1,11 @@
+/* Reactions-only variant of the site giscus theme. Inherits all the warm
+   colors from giscus-theme.css, then hides the entire comments region
+   (count header, comment list, and comment box) so visitors can add
+   reactions to the post but cannot read or write comments. The top
+   reaction bar (.gsc-reactions) is a sibling of .gsc-comments, so it
+   stays visible. */
+@import url("/giscus-theme.css");
+
+.gsc-comments {
+  display: none !important;
+}
