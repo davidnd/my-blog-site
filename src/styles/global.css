@@ -379,11 +379,11 @@ h3 {
 
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus,
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
-  min-height: 16rem;
+  min-height: 6.5rem;
 }
 
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
-  height: 16rem !important;
+  height: 6.5rem;
 }
 
 .comments h2 {

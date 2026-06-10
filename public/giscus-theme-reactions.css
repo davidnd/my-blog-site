@@ -10,12 +10,12 @@
   display: none !important;
 }
 
-/* Keep the iframe height stable for the reaction popover without inheriting
-   the full comment-thread footprint. giscus makes .gsc-reactions flex into the
-   available height, so pin it to its content and reserve only picker space. */
+/* Keep the closed reaction bar compact. When the picker opens, giscus can
+   resize the iframe just long enough to show it instead of leaving permanent
+   empty space on the page. */
 .gsc-main {
   gap: 0;
-  min-height: 16rem;
+  min-height: 6.5rem;
 }
 
 .gsc-reactions {
