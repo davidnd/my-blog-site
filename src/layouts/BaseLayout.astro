@@ -37,7 +37,7 @@ const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
       </main>
       <footer class="foot">
         <span>David Nguyen</span>
-        <span class="foot-dot">·</span>
+        <span class="foot-heart" aria-hidden="true">♥️</span>
         <span>Da Nang, Vietnam</span>
       </footer>
     </div>
@@ -57,8 +57,9 @@ const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
     align-items: center;
     gap: 14px;
   }
-  .foot-dot {
-    color: var(--rule-strong);
+  .foot-heart {
+    color: #e11d48;
+    opacity: 1;
     margin: 0 -6px;
   }
 </style>
