@@ -377,6 +377,15 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
+  min-height: 16rem;
+}
+
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
+  height: 16rem !important;
+}
+
 .comments h2 {
   margin: 0 0 18px;
   font-family:

@@ -10,12 +10,21 @@
   display: none !important;
 }
 
-/* The "Pick your reaction" popover is absolutely positioned, so it adds no
-   height to the widget. With the comment thread hidden the iframe would be
-   short and the popover would clip. Reserve a fixed height up front (the same
-   role the comment thread plays on full posts) so the popover simply overlays
-   this space when it opens, instead of growing the iframe and pushing the page
-   down. The reserved area sits empty below the reaction bar. */
+/* Keep the iframe height stable for the reaction popover without inheriting
+   the full comment-thread footprint. giscus makes .gsc-reactions flex into the
+   available height, so pin it to its content and reserve only picker space. */
 .gsc-main {
-  min-height: 21rem;
+  gap: 0;
+  min-height: 16rem;
+}
+
+.gsc-reactions {
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+  justify-content: flex-start;
+}
+
+.gsc-direct-reaction-buttons {
+  justify-content: center;
 }
