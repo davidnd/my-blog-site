@@ -382,8 +382,30 @@ h3 {
   min-height: 6.5rem;
 }
 
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
-  height: 6.5rem;
+  position: absolute;
+  inset: 0 auto auto 0;
+  height: 6.5rem !important;
+}
+
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus:hover .giscus-frame,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus:focus-within .giscus-frame,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame:hover,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame:focus {
+  min-height: 16rem;
+}
+
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus:hover .giscus-frame,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus:focus-within .giscus-frame,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame:hover,
+.comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame:focus {
+  height: 16rem !important;
 }
 
 .comments h2 {
