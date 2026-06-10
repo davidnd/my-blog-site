@@ -38,7 +38,7 @@ const enabled = Boolean(repo && repoId && category && categoryId);
 
   if (comments) {
     const script = document.createElement("script");
-    const themeUrl = new URL("/giscus-theme.css?v=20260610", window.location.origin);
+    const themeUrl = new URL("/giscus-theme.css", window.location.origin);
 
     script.src = "https://giscus.app/client.js";
     script.async = true;
