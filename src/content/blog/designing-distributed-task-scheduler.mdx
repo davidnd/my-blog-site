@@ -40,7 +40,7 @@ The traffic is diurnal and has two nasty spikes: a top of hour thundering herd w
 ## Architecture at a glance
 
 <figure className="architecture-diagram" aria-label="Distributed task scheduler architecture">
-  <svg viewBox="0 0 900 620" role="img">
+  <svg viewBox="0 0 1100 620" role="img">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" />
@@ -52,71 +52,71 @@ The traffic is diurnal and has two nasty spikes: a top of hour thundering herd w
     <title>Distributed task scheduler architecture</title>
 
     <g className="diagram-node">
-      <rect x="60" y="46" width="220" height="76" rx="8" />
-      <text x="170" y="78">Internal services</text>
-      <text x="170" y="101" className="diagram-sub">one-shot + scheduled</text>
+      <rect x="40" y="60" width="240" height="76" rx="8" />
+      <text x="160" y="92">Internal services</text>
+      <text x="160" y="115" className="diagram-sub">one-shot + scheduled</text>
     </g>
     <g className="diagram-node">
-      <rect x="60" y="166" width="220" height="76" rx="8" />
-      <text x="170" y="198">Recurrent job creator</text>
-      <text x="170" y="221" className="diagram-sub">cron expand + jitter</text>
+      <rect x="40" y="185" width="240" height="76" rx="8" />
+      <text x="160" y="217">Recurrent job creator</text>
+      <text x="160" y="240" className="diagram-sub">cron expand + jitter</text>
     </g>
     <g className="diagram-node diagram-store">
-      <rect x="350" y="92" width="250" height="118" rx="8" />
-      <text x="475" y="128">Timer store</text>
-      <text x="475" y="151" className="diagram-sub">bucketed</text>
-      <text x="475" y="174" className="diagram-sub">PK=(bucket, shard)</text>
-      <text x="475" y="197" className="diagram-sub">SK=(tenant, run_at)</text>
+      <rect x="370" y="112" width="270" height="118" rx="8" />
+      <text x="505" y="148">Timer store</text>
+      <text x="505" y="171" className="diagram-sub">bucketed</text>
+      <text x="505" y="194" className="diagram-sub">PK=(bucket, shard)</text>
+      <text x="505" y="217" className="diagram-sub">SK=(tenant, run_at)</text>
     </g>
     <g className="diagram-node">
-      <rect x="644" y="46" width="220" height="76" rx="8" />
-      <text x="754" y="78">Coordinator</text>
-      <text x="754" y="101" className="diagram-sub">etcd / ZK - shard ownership</text>
+      <rect x="820" y="60" width="240" height="76" rx="8" />
+      <text x="940" y="92">Coordinator</text>
+      <text x="940" y="115" className="diagram-sub">etcd / ZK - shard ownership</text>
     </g>
     <g className="diagram-node">
-      <rect x="644" y="166" width="220" height="76" rx="8" />
-      <text x="754" y="198">Scanner pool</text>
-      <text x="754" y="221" className="diagram-sub">per-tenant cursor - local DRR</text>
+      <rect x="820" y="185" width="240" height="76" rx="8" />
+      <text x="940" y="217">Scanner pool</text>
+      <text x="940" y="240" className="diagram-sub">per-tenant cursor - local DRR</text>
     </g>
     <g className="diagram-node">
-      <rect x="350" y="300" width="250" height="76" rx="8" />
-      <text x="475" y="332">Ready queue</text>
-      <text x="475" y="355" className="diagram-sub">per-tenant lanes</text>
+      <rect x="370" y="315" width="270" height="76" rx="8" />
+      <text x="505" y="347">Ready queue</text>
+      <text x="505" y="370" className="diagram-sub">per-tenant lanes</text>
     </g>
     <g className="diagram-node">
-      <rect x="644" y="300" width="220" height="76" rx="8" />
-      <text x="754" y="344">Dispatcher</text>
+      <rect x="820" y="315" width="240" height="76" rx="8" />
+      <text x="940" y="359">Dispatcher</text>
     </g>
     <g className="diagram-node">
-      <rect x="350" y="452" width="250" height="76" rx="8" />
-      <text x="475" y="484">Worker pool</text>
-      <text x="475" y="507" className="diagram-sub">visibility timeout - idempotent</text>
+      <rect x="370" y="475" width="270" height="76" rx="8" />
+      <text x="505" y="507">Worker pool</text>
+      <text x="505" y="530" className="diagram-sub">visibility timeout - idempotent</text>
     </g>
     <g className="diagram-node diagram-store">
-      <rect x="60" y="452" width="220" height="76" rx="8" />
-      <text x="170" y="496">Audit sink</text>
+      <rect x="40" y="475" width="240" height="76" rx="8" />
+      <text x="160" y="519">Audit sink</text>
     </g>
     <g className="diagram-node diagram-store">
-      <rect x="644" y="452" width="220" height="76" rx="8" />
-      <text x="754" y="496">Dead-letter queue</text>
+      <rect x="820" y="475" width="240" height="76" rx="8" />
+      <text x="940" y="519">Dead-letter queue</text>
     </g>
 
-    <path className="diagram-line" d="M 280 84 H 350" />
-    <path className="diagram-line" d="M 280 204 H 350" />
-    <path className="diagram-line" d="M 600 151 H 644 V 204" />
-    <path className="diagram-line diagram-muted" d="M 754 122 V 166" />
-    <path className="diagram-line" d="M 754 242 V 338 H 600" />
-    <path className="diagram-line" d="M 600 338 H 644" />
-    <path className="diagram-line" d="M 754 376 V 490 H 600" />
-    <path className="diagram-line" d="M 350 490 H 280" />
-    <path className="diagram-line" d="M 600 490 H 644" />
-    <path className="diagram-line" d="M 475 452 V 410 H 475 V 376" />
-    <path className="diagram-line" d="M 475 452 C 475 408 210 402 210 242 C 210 226 260 214 350 204" />
+    <path className="diagram-line" d="M 280 98 H 370" />
+    <path className="diagram-line" d="M 280 223 H 370" />
+    <path className="diagram-line" d="M 640 171 H 730 V 223 H 820" />
+    <path className="diagram-line diagram-muted" d="M 940 136 V 185" />
+    <path className="diagram-line" d="M 820 223 H 725 V 353 H 640" />
+    <path className="diagram-line" d="M 640 353 H 820" />
+    <path className="diagram-line" d="M 820 353 H 725 V 513 H 640" />
+    <path className="diagram-line" d="M 370 513 H 280" />
+    <path className="diagram-line" d="M 640 513 H 820" />
+    <path className="diagram-line" d="M 505 475 V 391" />
+    <path className="diagram-line" d="M 505 475 C 365 430 220 390 220 300 C 220 250 285 229 370 216" />
 
-    <text x="754" y="146" className="diagram-label">assigns shards</text>
-    <text x="275" y="431" className="diagram-label">retry: re-enqueue with backoff</text>
-    <text x="314" y="478" className="diagram-label">success</text>
-    <text x="612" y="478" className="diagram-label">max retries</text>
+    <text x="940" y="164" className="diagram-label">assigns shards</text>
+    <text x="240" y="430" className="diagram-label">retry: re-enqueue with backoff</text>
+    <text x="325" y="501" className="diagram-label">success</text>
+    <text x="730" y="501" className="diagram-label">max retries</text>
   </svg>
 </figure>
 
