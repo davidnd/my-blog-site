@@ -1,0 +1,61 @@
+---
+const repo = import.meta.env.PUBLIC_GISCUS_REPO ?? "davidnd/my-blog-site";
+const repoId = import.meta.env.PUBLIC_GISCUS_REPO_ID ?? "R_kgDOSyNFhA";
+const category = import.meta.env.PUBLIC_GISCUS_CATEGORY ?? "Announcements";
+const categoryId = import.meta.env.PUBLIC_GISCUS_CATEGORY_ID ?? "DIC_kwDOSyNFhM4C-201";
+const enabled = Boolean(repo && repoId && category && categoryId);
+---
+
+{
+  enabled ? (
+    <section
+      class="comments"
+      aria-labelledby="comments-title"
+      data-giscus-comments
+      data-repo={repo}
+      data-repo-id={repoId}
+      data-category={category}
+      data-category-id={categoryId}
+    >
+      <h2 id="comments-title">Comments</h2>
+      <div class="giscus" />
+    </section>
+  ) : (
+    import.meta.env.DEV && (
+      <section class="comments comments-disabled" aria-labelledby="comments-title">
+        <h2 id="comments-title">Comments</h2>
+        <p>
+          Add giscus repo and discussion IDs to enable comments locally and in
+          Cloudflare Pages.
+        </p>
+      </section>
+    )
+  )
+}
+
+<script is:inline>
+  const comments = document.querySelector("[data-giscus-comments]");
+
+  if (comments) {
+    const script = document.createElement("script");
+    const themeUrl = new URL("/giscus-theme.css", window.location.origin);
+
+    script.src = "https://giscus.app/client.js";
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.setAttribute("data-repo", comments.dataset.repo);
+    script.setAttribute("data-repo-id", comments.dataset.repoId);
+    script.setAttribute("data-category", comments.dataset.category);
+    script.setAttribute("data-category-id", comments.dataset.categoryId);
+    script.setAttribute("data-mapping", "pathname");
+    script.setAttribute("data-strict", "0");
+    script.setAttribute("data-reactions-enabled", "1");
+    script.setAttribute("data-emit-metadata", "0");
+    script.setAttribute("data-input-position", "bottom");
+    script.setAttribute("data-theme", themeUrl.toString());
+    script.setAttribute("data-lang", "en");
+    script.setAttribute("data-loading", "lazy");
+
+    comments.querySelector(".giscus").append(script);
+  }
+</script>

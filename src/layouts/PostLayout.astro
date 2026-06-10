@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
+import GiscusComments from "../components/GiscusComments.astro";
 import { tagSlug } from "../lib/posts";
 
 const { post } = Astro.props;
@@ -32,5 +33,6 @@ const formattedDate = new Intl.DateTimeFormat("en", {
     <div class="prose">
       <slot />
     </div>
+    <GiscusComments />
   </article>
 </BaseLayout>
