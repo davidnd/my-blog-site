@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;
-  --bg: #f3ede1;
-  --surface: #fffaf0;
+  --bg: #f0eee9;
+  --surface: #fbfaf7;
   --text: #26221b;
-  --muted: #6f685b;
-  --line: #ded6c7;
+  --muted: #67645e;
+  --line: #d9d6ce;
   --link: var(--accent);
   --link-hover: oklch(0.47 0.12 48);
-  --code-bg: #ece5d8;
+  --code-bg: #e8e5de;
   --code-text: #24221f;
 
   /* Front-page semantic tokens. Fonts mirror the post page (system serif +
