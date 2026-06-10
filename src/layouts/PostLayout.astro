@@ -1,0 +1,36 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import { tagSlug } from "../lib/posts";
+
+const { post } = Astro.props;
+const formattedDate = new Intl.DateTimeFormat("en", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+}).format(post.data.pubDate);
+---
+
+<BaseLayout title={post.data.title} description={post.data.description}>
+  <article class="post">
+    <header class="post-header">
+      <a class="back-link" href="/">Back to all posts</a>
+      <h1>{post.data.title}</h1>
+      <p class="post-description">{post.data.description}</p>
+      {
+        post.data.tags.length > 0 && (
+          <ul class="tag-list" aria-label="Tags">
+            {post.data.tags.map((tag) => (
+              <li>
+                <a href={`/tags/${tagSlug(tag)}/`}>{tag}</a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+      <p class="post-date">{formattedDate}</p>
+    </header>
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">Quiet writing desk</title>
+  <desc id="desc">A simple illustration of a notebook, laptop, and lamp on a calm background.</desc>
+  <rect width="1200" height="720" fill="#e8e1d4"/>
+  <rect x="120" y="430" width="960" height="72" rx="10" fill="#8f7a62"/>
+  <rect x="210" y="194" width="360" height="236" rx="14" fill="#20201d"/>
+  <rect x="232" y="216" width="316" height="174" rx="4" fill="#f5f1e8"/>
+  <rect x="290" y="410" width="200" height="20" rx="4" fill="#5c5146"/>
+  <rect x="650" y="230" width="270" height="200" rx="12" fill="#f8f4ea"/>
+  <path d="M690 282h190M690 326h150M690 370h180" stroke="#9d8f7f" stroke-width="12" stroke-linecap="round"/>
+  <path d="M846 430c26-56 58-108 98-156" stroke="#324b43" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <circle cx="962" cy="250" r="46" fill="#d9b75f"/>
+  <path d="M962 296v134" stroke="#324b43" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="962" cy="250" r="22" fill="#f5d77a"/>
+</svg>

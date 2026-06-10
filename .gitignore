@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+.npm-cache/
+.config/
+.DS_Store
+*.log
+.claude/settings.local.json

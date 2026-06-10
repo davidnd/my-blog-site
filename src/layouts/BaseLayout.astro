@@ -1,0 +1,65 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "David Nguyen",
+  description = "Notes on software, systems, and the things I am learning.",
+} = Astro.props;
+
+const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <title>{pageTitle}</title>
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="site-title" href="/">David Nguyen</a>
+        <nav aria-label="Primary navigation">
+          <a href="https://www.linkedin.com/in/davidnd" target="_blank">LinkedIn</a>
+          <a href="/rss.xml">RSS</a>
+        </nav>
+      </header>
+      <main>
+        <slot />
+      </main>
+      <footer class="foot">
+        <span>David Nguyen</span>
+        <span class="foot-dot">·</span>
+        <span>Da Nang, Vietnam</span>
+      </footer>
+    </div>
+  </body>
+</html>
+
+<style>
+  /* Mirrors the footer on the front and tag pages. */
+  .foot {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--faint);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .foot-dot {
+    color: var(--rule-strong);
+    margin: 0 -6px;
+  }
+</style>

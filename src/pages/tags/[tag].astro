@@ -1,0 +1,312 @@
+---
+import "../../styles/global.css";
+import { getPublishedPosts, tagSlug } from "../../lib/posts";
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+
+  // One page per unique tag slug; posts stay newest-first from getPublishedPosts.
+  const byTag = new Map<string, { tag: string; posts: typeof posts }>();
+  for (const post of posts) {
+    for (const tag of post.data.tags) {
+      const slug = tagSlug(tag);
+      if (!byTag.has(slug)) byTag.set(slug, { tag, posts: [] });
+      byTag.get(slug)!.posts.push(post);
+    }
+  }
+
+  return [...byTag.entries()].map(([slug, { tag, posts }]) => ({
+    params: { tag: slug },
+    props: { tag, posts },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+
+// Group by year (descending), mirroring the front page archive.
+const archive = new Map<number, typeof posts>();
+for (const post of posts) {
+  const year = post.data.pubDate.getFullYear();
+  if (!archive.has(year)) archive.set(year, []);
+  archive.get(year)!.push(post);
+}
+const years = [...archive.keys()].sort((a, b) => b - a);
+
+const shortDate = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+});
+
+const postHref = (post: (typeof posts)[number]) => `/blog/${post.id}/`;
+const iso = (date: Date) => date.toISOString();
+const count = posts.length;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={`Posts tagged "${tag}".`} />
+    <meta name="generator" content={Astro.generator} />
+    <title>{`#${tag}`} | David Nguyen</title>
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="RSS"
+      href="/rss.xml"
+    />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="mast">
+        <a class="mast-name" href="/">David Nguyen</a>
+        <nav class="mast-nav">
+          <a
+            class="mast-rss"
+            href="https://www.linkedin.com/in/davidnd"
+            target="_blank"
+          >
+            LinkedIn
+          </a>
+          <a class="mast-rss" href="/rss.xml">RSS</a>
+        </nav>
+      </header>
+
+      <a class="back" href="/">← All posts</a>
+
+      <div class="lede">
+        <h1 class="blog-title">#{tag}</h1>
+        <p class="blog-sub">
+          {count} {count === 1 ? "post" : "posts"} tagged “{tag}”.
+        </p>
+      </div>
+
+      {
+        years.map((year) => (
+          <section class="arc-year">
+            <div class="arc-yearlabel">{year}</div>
+            <ul class="arc-list">
+              {archive.get(year)!.map((post) => (
+                <li>
+                  <a class="arc-link" href={postHref(post)}>
+                    <time class="arc-date" datetime={iso(post.data.pubDate)}>
+                      {shortDate.format(post.data.pubDate)}
+                    </time>
+                    <span class="arc-title">{post.data.title}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+
+      <footer class="foot">
+        <span>David Nguyen</span>
+        <span class="foot-dot">·</span>
+        <span>Da Nang, Vietnam</span>
+      </footer>
+    </div>
+  </body>
+</html>
+
+<style>
+  .wrap {
+    width: 632px;
+    max-width: calc(100% - 48px);
+    margin: 0 auto;
+    padding: 64px 0 48px;
+  }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 40px;
+  }
+  .mast-name {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .mast-rss {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .mast-rss:hover {
+    color: var(--accent);
+  }
+  .mast-nav {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+  }
+
+  /* ---------- back link ---------- */
+  .back {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 20px;
+    transition: color 0.15s ease;
+  }
+  .back:hover {
+    color: var(--accent);
+  }
+
+  /* ---------- lede ---------- */
+  .lede {
+    margin-bottom: 40px;
+  }
+  .blog-title {
+    font-family: var(--slab);
+    font-weight: 700;
+    font-size: 44px;
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    margin: 0 0 14px;
+  }
+  .blog-sub {
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+    max-width: 46ch;
+  }
+
+  /* ---------- archive (year-grouped, compact) ---------- */
+  .arc-year {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 0 28px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .arc-year:first-of-type {
+    border-top: 1px solid var(--rule-strong);
+  }
+  .arc-yearlabel {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+    padding-top: 12px;
+  }
+  .arc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .arc-link {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    text-decoration: none;
+    color: inherit;
+    padding: 9px 12px;
+    margin: 0 -12px;
+    border-radius: 7px;
+    transition: background 0.13s ease;
+  }
+  .arc-link:hover {
+    background: var(--tint);
+  }
+  .arc-date {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--faint);
+    width: 58px;
+    flex-shrink: 0;
+  }
+  .arc-title {
+    font-family: var(--slab);
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 1.3;
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+    transition:
+      text-decoration-color 0.13s ease,
+      color 0.13s ease;
+  }
+  .arc-link:hover .arc-title {
+    color: var(--accent);
+    text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+
+  /* ---------- footer ---------- */
+  .foot {
+    margin-top: 56px;
+    padding-top: 22px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--faint);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .foot a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .foot a:hover {
+    color: var(--accent);
+  }
+  .foot-dot {
+    color: var(--rule-strong);
+    margin: 0 -6px;
+  }
+
+  /* ---------- focus ---------- */
+  .mast-name:focus-visible,
+  .mast-rss:focus-visible,
+  .back:focus-visible,
+  .arc-link:focus-visible,
+  .foot a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 520px) {
+    .wrap {
+      padding: 40px 0 36px;
+    }
+    .mast {
+      padding-bottom: 32px;
+    }
+    .blog-title {
+      font-size: 34px;
+    }
+    .blog-sub {
+      font-size: 16.5px;
+    }
+    .arc-year {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .arc-yearlabel {
+      padding-top: 14px;
+      padding-bottom: 2px;
+    }
+  }
+</style>
