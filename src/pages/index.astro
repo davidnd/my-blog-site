@@ -250,6 +250,7 @@ const pageDescription =
   .feat-meta {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 16px;
     margin-top: 20px;
     font-family: var(--sans);
@@ -258,7 +259,9 @@ const pageDescription =
   }
   .feat-tags {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+    min-width: 0;
   }
   .tag {
     position: relative;
@@ -422,6 +425,13 @@ const pageDescription =
     }
     .feat-desc {
       font-size: 16.5px;
+    }
+    .feat-meta {
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .feat-tags {
+      flex: 1 1 180px;
     }
     .arc-year {
       grid-template-columns: 1fr;
