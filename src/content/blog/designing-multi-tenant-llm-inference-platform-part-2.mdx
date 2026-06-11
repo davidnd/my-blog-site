@@ -1,0 +1,141 @@
+---
+title: "Designing a Multi-Tenant LLM Inference Platform, Part 2"
+description: "Scaling a serving cell when cold starts take minutes: sizing warm spare from forecast error, model-local standby, draining, and failing honestly when the KV cache is gone."
+pubDate: "2026-06-11"
+tags:
+  - systems
+  - system-design
+  - llm
+  - inference
+  - gpu
+---
+
+[Part 1](/blog/designing-multi-tenant-llm-inference-platform/) covered the serving path: admission, continuous batching with chunked prefill, direct token streaming, and fairness measured in KV-cache-seconds. It also ended with an honest list of what it did not cover, and two items on that list are the ones that decide whether the platform survives production: scaling when weights take minutes to load, and failure when a GPU dies mid-generation and takes the KV cache with it.
+
+This post works through both, scoped to a single serving cell. Multi-region placement and global traffic management are their own topic; almost everything interesting about reliability happens inside the cell anyway.
+
+## Autoscaling cannot save a spike
+
+For a stateless HTTP service, autoscaling is the answer to a traffic spike: add pods, spread load, done. Here it is not, and the reason is the same physics from Part 1.
+
+A new serving replica is not useful when its process starts. It is useful when GPU capacity is assigned, weights are loaded, the runtime is initialized, health checks pass, routing knows about it, and it has empty KV memory to admit sequences. A 70B-class model is around 140 GB of weights in fp16. Streaming that from local NVMe takes tens of seconds in the best case; pulling it from remote object storage, plus runtime init and CUDA warmup, routinely takes minutes. By the time the replica is ready, the spike that triggered it has already blown the SLA or passed.
+
+So the levers invert. Headroom absorbs the spike that is already arriving. Prediction decides how much headroom to hold. Shedding protects the system when both were wrong. Reactive autoscaling still runs, but it defends the next few minutes, not the current one.
+
+## The unit of scale is a cell
+
+I would not treat the platform as one global GPU pool. I would split it into serving cells, where a cell is a failure and routing domain: its own admission, its own router, streaming nodes, model-specific GPU pools, and observability.
+
+The boundary follows from the no-migration rule in Part 1. Once a request starts prefill, its KV cache lives on one replica, so the cell that admitted it owns its whole lifecycle. A global router can steer *new* traffic away from a hot cell. It cannot rescue generations already running there. That asymmetry is the design: blast radius is one cell, and everything stateful stays inside it.
+
+## Architecture
+
+<figure className="architecture-diagram">
+  <img
+    src="/images/llm-inference-serving-cell.svg"
+    alt="Architecture diagram of a multi-tenant LLM inference serving platform with global router, serving cell, instant and thinking model pools, warm standby, admission control, and streaming nodes"
+  />
+  <figcaption>
+    A serving cell owns admission, streaming, and model-local GPU pools. Instant and thinking capacity are non-fungible without a weight swap, which is a cold-start-class operation.
+  </figcaption>
+</figure>
+
+## Size the warm pool from forecast error
+
+The tempting answer is a flat number: keep 20% warm. That number has to come from somewhere, and the honest source is two measurements you can actually make: how wrong your demand forecast is, and how much one replica can safely do.
+
+Forecast error first. For each model in each cell, forecast demand over the next cold-start window, then record how far reality overshot the forecast. Backtest that over months of real traffic and take a high percentile of the positive error. That tail is your warm spare target: enough pre-loaded capacity to absorb the worst forecast miss you are willing to pay to survive, over exactly the window during which no new capacity can arrive. Whether you hold the p99 or the p99.9 is a business decision, because that percentile is literally the price of the SLA.
+
+Converting demand into replicas takes three benchmarked ceilings, because three different resources can be the limiter: safe prefill tokens per second, safe decode tokens per second, and safe resident KV tokens. Required replicas is the max of the three ratios:
+
+```text
+required_replicas = max(
+  prefill_demand  / safe_prefill_per_replica,
+  decode_demand   / safe_decode_per_replica,
+  resident_kv     / safe_resident_kv_per_replica
+)
+```
+
+KV-cache-seconds remain the right fairness currency from Part 1, but capacity planning is three-dimensional. A workload of long prompts and short answers exhausts prefill first; long chatty generations exhaust KV residency first. Sizing on one dimension means the other one surprises you.
+
+## Warm spare is model-local
+
+Suppose the cell serves two models: an instant model available to free and paid users, and a thinking model for paid users only. An idle GPU holding instant weights contributes nothing to a thinking surge, because swapping weights is a cold-start-class operation. So warm spare is counted per model, and "idle GPUs anywhere in the cell" is not a spare pool. It is two spare pools that happen to share a building.
+
+It is also worth being precise about what a warm spare buys. It has weights loaded and a runtime ready, but no user KV cache. It can absorb new requests, drain the admission queue, and relieve TTFT pressure. It cannot help a generation already pinned to a hot replica; that sequence's KV cache lives where it lives, and the only relief for the hot replica is to stop sending it new work and let it drain. (Disaggregated-prefill architectures do hand KV from prefill workers to decode workers over fast interconnects, but that is a different design with its own costs, and Part 1 ruled out migration for this one.)
+
+Standby comes in two flavors. **Hard standby** is a replica with weights loaded and nothing running: expensive, but instantly clean. **Reclaimable standby** is a replica serving traffic you are willing to evict, which only works if such traffic exists for that model. For the instant model it does: free and over-quota burst traffic can borrow the capacity and be preempted when paid demand arrives. For the thinking model it depends on the product. With a single paid tier where every user is equally protected, thinking spare has to be hard standby, because there is nothing safe to evict.
+
+The discipline here is refusing to double-count. A "spare" that is serving protected traffic is not spare. It is active capacity with a flattering name, and it will not be there when the surge comes.
+
+## Cold start has layers
+
+When the controller decides it needs more thinking capacity, it has three moves with very different clocks.
+
+**Promote hard standby.** Weights are loaded, KV is empty, the router can send traffic immediately. This works in seconds and is the only move that defends the spike already in progress.
+
+**In-cell cold start.** The GPU already belongs to the cell but is stopped, drained, or loaded with the wrong model. Load weights, initialize, health check, register. This is the tens-of-seconds-to-minutes path, and it replenishes the standby the first move just spent.
+
+**New-cell bootstrap.** Allocate capacity, place models, verify the streaming path with synthetic traffic, register with global routing, ramp gradually. This takes long enough that it only answers sustained growth, regional failover, or a forecast that was wrong for hours, never an immediate spike.
+
+## Scaling runs a playbook, not an action
+
+Because each move has a different time-to-impact, a pressure signal should fan out into several of them at once rather than picking one:
+
+| Action | Time-to-impact | Purpose |
+|---|---:|---|
+| Promote hard standby | seconds | absorb the spike now |
+| Route new traffic away from hot cell | seconds | protect local SLA |
+| Tighten new admissions | immediate | slow future KV growth |
+| In-cell cold start | tens of seconds to minutes | refill standby |
+| New-cell bootstrap | minutes or more | sustained surge |
+| Shed | immediate | survive when the rest was not enough |
+
+The trigger is the ratio of predicted demand to SLA-safe capacity, but the ratio alone is not enough to choose actions. Pair it with forecast confidence and time-to-breach: a confident 120% forecast thirty seconds out means promote standby and start cold starts immediately, while the same ratio ten minutes out means prepare capacity and wait. The exact thresholds come out of backtesting; the structure matters more than the numbers.
+
+One line in the playbook deserves emphasis, because getting it backwards is expensive in both directions. Forecasts prepare capacity; only actual pressure triggers degradation. Over-preparing on a wrong forecast wastes money. Shedding users on a wrong forecast burns trust for nothing.
+
+And degradation applies to new admissions, never silently to running streams: lower output caps for new requests, reject very long prompts and over-quota tenants earlier, route to other cells, and return `503 Retry-After` when no safe cell exists. For a stream that is already running, the system cannot force the model to wrap up gracefully because memory is low. It can stop at a limit and say why, but that is controlled truncation, and it should be labeled as such.
+
+## Scale-down is where deploys live
+
+Scaling down is harder than scaling up, because a replica with in-flight generations owns KV cache, decode state, and stream ownership. Killing it fails real requests. So scale-down means draining: stop admitting, let generations finish, enforce a deadline, fail the long tail explicitly, then release the GPU. Since output length is unknown at admission, the tail of that drain can be minutes.
+
+This machinery is not an autoscaling corner case. It is how every deploy works. A rollout is a rolling drain plus a cold start per replica, which means rollout speed across the fleet is bounded by drain tails and weight-loading time, and a bad deploy cannot be rolled back instantly either. That is one more reason cells are worth having: you canary a cell, not the world.
+
+The asymmetry to encode in the controller: scale up eagerly on forecasted risk, scale down lazily on sustained low demand. Aggressive scale-down breaks streams, churns weights, and usually triggers the next scale-up immediately.
+
+## Routing when a cell is full
+
+When a cell is out of safe capacity for a model and tier, the global router should stop offering it new admissions, while the cell's own admission check remains the source of truth, exactly like the router-and-replica split in Part 1. The router places approximately from sampled capacity scores; the cell rejects if it is actually full; the router retries another cell within a bounded retry budget. The budget matters: without it, a globally full fleet turns overload into a retry storm. When every cell rejects, return `503 Retry-After` and stop.
+
+The capacity score is the subtle part. Raw GPU count is the wrong signal: a cell can have plenty of live GPUs and a red TPOT trend, and that cell has no available capacity at all. Liveness is not serviceability. Score cells on model-local headroom, TTFT and TPOT trends, queue depth, recent rejection rate, KV pressure, and standby state, and let the trends carry more weight than the inventory.
+
+## Fail honestly
+
+The hardest failure case is also the simplest to state: a worker dies mid-generation, the KV cache is gone, and half the answer has already been streamed to the client.
+
+There is no clean recovery. The cache cannot be rebuilt without redoing the work, replaying tokens is impossible because generation is not deterministic across runs, and a durable token queue would not have saved the model's state anyway. The correct behavior is explicit failure:
+
+```json
+{
+  "type": "error",
+  "code": "generation_interrupted",
+  "retryable": true
+}
+```
+
+A chat UI keeps the partial message, marks it failed, and offers retry. The prompt still exists, so retrying from scratch is the honest path, and pretending the response completed is the only truly wrong answer.
+
+The same honesty applies to cleanup, where the failure can sit on either side of the stream. If the worker dies, the cell notices the missing heartbeat, marks its resident sequences failed, and the streaming node errors out the affected clients. The reverse case is sneakier: if the streaming node dies or a client disconnects, the GPU will happily keep decoding tokens that nobody can receive. The fix is leases. Every sequence's stream ownership is a lease the worker checks; when the lease expires or token delivery stays blocked too long, the worker cancels the sequence and releases its KV. Without that timeout, every lost cancellation message becomes a permanent GPU leak, which is the quietest possible way to lose a fleet.
+
+One rule covers all of it: no transparent resume, no token replay, no KV reconstruction. Fail explicitly, release the memory, let the client retry from the prompt.
+
+## Takeaways
+
+- Cold start is minutes, so autoscaling defends the future, not the spike. Headroom, prediction, and shedding defend the present.
+- Warm spare is not a vibe-based percentage. It is the backtested tail of forecast error over the cold-start window, converted to replicas through three benchmarked ceilings.
+- Spare capacity is model-local, and a spare serving protected traffic is not spare.
+- Forecasts prepare capacity; only real pressure degrades service, and only for new admissions.
+- Scale-down is draining, and draining is also your deploy pipeline. Cells bound the blast radius of both.
+- When the KV cache dies mid-stream, the honest answer is an explicit retryable error. Everything else is pretending.
