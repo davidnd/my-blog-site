@@ -1,148 +1,135 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="950" viewBox="0 0 1600 950">
+<svg viewBox="0 0 1280 860" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
   <defs>
-    <marker id="arrow" markerWidth="11" markerHeight="11" refX="9.5" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M1.6,1.4 L9.5,5.5 L1.6,9.6 Z" fill="#273142"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
     </marker>
-    <marker id="arrowTeal" markerWidth="11" markerHeight="11" refX="9.5" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M1.6,1.4 L9.5,5.5 L1.6,9.6 Z" fill="#047481"/>
+    <marker id="arrowReturn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
     </marker>
-    <marker id="arrowAmber" markerWidth="11" markerHeight="11" refX="9.5" refY="5.5" orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M1.6,1.4 L9.5,5.5 L1.6,9.6 Z" fill="#a15c00"/>
+    <marker id="arrowControl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
     </marker>
-    <style>
-      .bg { fill: #ffffff; }
-      .outer { fill: #ffffff; stroke: #b8bcc5; stroke-width: 3; }
-      .cell { fill: #ffffff; stroke: #9ca3af; stroke-width: 3; }
-      .box { fill: #f8fafc; stroke: #273142; stroke-width: 3; }
-      .blue { fill: #eef4ff; }
-      .cream { fill: #fff6ec; }
-      .green { fill: #eefbf5; }
-      .inner { fill: #ffffff; stroke: #273142; stroke-width: 2.4; }
-      .standby { fill: #ffffff; stroke: #273142; stroke-width: 2.4; stroke-dasharray: 9 8; }
-      .cold { fill: #ffffff; stroke: #273142; stroke-width: 2.4; stroke-dasharray: 3 8; }
-      .request { fill: none; stroke: #273142; stroke-width: 2.6; marker-end: url(#arrow); }
-      .stream { fill: none; stroke: #047481; stroke-width: 2.6; marker-end: url(#arrowTeal); }
-      .control { fill: none; stroke: #a15c00; stroke-width: 2.2; stroke-dasharray: 9 8; marker-end: url(#arrowAmber); }
-      .text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #111827; }
-      .title { font-size: 34px; font-weight: 800; }
-      .section { font-size: 28px; font-weight: 800; }
-      .h { font-size: 21px; font-weight: 800; }
-      .body { font-size: 17px; fill: #5f6673; }
-      .small { font-size: 15px; fill: #5f6673; }
-      .label { font-size: 15px; font-weight: 700; fill: #4b5563; }
-      .label-bg { fill: #ffffff; opacity: 0.96; }
-      .note { font-size: 16px; fill: #4b5563; }
-    </style>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="1600" height="950"/>
-  <rect class="outer" x="38" y="28" width="1524" height="880" rx="30"/>
+  <rect x="0" y="0" width="1280" height="860" fill="#ffffff"/>
+  <text x="640" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">Multi-Tenant LLM Inference Platform: Serving Cell</text>
+  <text x="640" y="62" text-anchor="middle" font-size="13" fill="#64748b">Request path (solid), token stream (dashed green), control plane (dashed amber). Spare capacity is model-local.</text>
 
-  <text class="text title" x="800" y="76" text-anchor="middle">Multi-tenant LLM inference serving platform</text>
+  <!-- Clients -->
+  <rect x="60" y="104" width="120" height="72" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="120" y="136" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Clients</text>
+  <text x="120" y="158" text-anchor="middle" font-size="11.5" fill="#64748b">HTTP streaming</text>
 
-  <!-- Top-level request router and control plane -->
-  <rect class="box" x="82" y="120" width="250" height="95" rx="18"/>
-  <text class="text h" x="207" y="158" text-anchor="middle">Clients</text>
-  <text class="text body" x="207" y="188" text-anchor="middle">HTTP streaming requests</text>
+  <!-- Global traffic director -->
+  <rect x="248" y="94" width="212" height="92" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="354" y="122" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">Global Traffic Director</text>
+  <text x="354" y="144" text-anchor="middle" font-size="12" fill="#64748b">routes new admissions by</text>
+  <text x="354" y="162" text-anchor="middle" font-size="12" fill="#64748b">model, tier, cell capacity</text>
 
-  <rect class="box blue" x="395" y="108" width="330" height="120" rx="18"/>
-  <text class="text h" x="560" y="149" text-anchor="middle">Global traffic director</text>
-  <text class="text body" x="560" y="179" text-anchor="middle">routes new admissions by</text>
-  <text class="text body" x="560" y="204" text-anchor="middle">model, tenant tier, cell capacity</text>
+  <!-- Capacity controller -->
+  <rect x="920" y="94" width="250" height="92" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="1045" y="122" text-anchor="middle" font-size="13" font-weight="600" fill="#9a3412">Capacity Controller</text>
+  <text x="1045" y="144" text-anchor="middle" font-size="12" fill="#7c2d12">forecasts demand per model x cell</text>
+  <text x="1045" y="162" text-anchor="middle" font-size="12" fill="#7c2d12">standby promotion, cold starts</text>
 
-  <rect class="box cream" x="1115" y="108" width="365" height="120" rx="18"/>
-  <text class="text h" x="1297.5" y="149" text-anchor="middle">Capacity controller</text>
-  <text class="text body" x="1297.5" y="179" text-anchor="middle">forecasts per model &#215; cell:</text>
-  <text class="text body" x="1297.5" y="204" text-anchor="middle">standby promotion, cold starts</text>
+  <!-- Clients -> Director -->
+  <line x1="182" y1="140" x2="246" y2="140" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="214" y="128" text-anchor="middle" font-size="11.5" fill="#64748b">request</text>
 
-  <path class="request" d="M332 167.5 H383"/>
-  <rect class="label-bg" x="326" y="128" width="62" height="22" rx="6"/>
-  <text class="text label" x="357" y="144" text-anchor="middle">request</text>
-
-  <path class="control" d="M1115 152 H738"/>
-  <rect class="label-bg" x="807" y="112" width="242" height="24" rx="6"/>
-  <text class="text label" x="928" y="130" text-anchor="middle">capacity map + admission policy</text>
-  <path class="control" d="M725 200 H1103"/>
-  <rect class="label-bg" x="798" y="226" width="234" height="24" rx="6"/>
-  <text class="text label" x="915" y="244" text-anchor="middle">demand signals + load telemetry</text>
+  <!-- Controller <-> Director (control plane) -->
+  <line x1="918" y1="118" x2="464" y2="118" stroke="#ea580c" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrowControl)"/>
+  <text x="691" y="106" text-anchor="middle" font-size="11.5" fill="#9a3412">capacity map + admission policy</text>
+  <line x1="462" y1="166" x2="916" y2="166" stroke="#ea580c" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrowControl)"/>
+  <text x="691" y="186" text-anchor="middle" font-size="11.5" fill="#9a3412">demand signals + load telemetry</text>
 
   <!-- Serving cell -->
-  <rect class="cell" x="78" y="284" width="1444" height="565" rx="28"/>
-  <text class="text section" x="800" y="330" text-anchor="middle">Serving cell</text>
+  <rect x="60" y="246" width="1160" height="556" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="84" y="278" font-size="15" font-weight="700" fill="#334155">Serving Cell</text>
+  <text x="84" y="296" font-size="11.5" fill="#64748b">failure + routing domain</text>
 
-  <rect class="box green" x="120" y="382" width="275" height="130" rx="18"/>
-  <text class="text h" x="257.5" y="423" text-anchor="middle">Streaming nodes</text>
-  <text class="text body" x="257.5" y="454" text-anchor="middle">cell ingress/egress</text>
-  <text class="text body" x="257.5" y="480" text-anchor="middle">bounded buffers, stream errors</text>
+  <!-- Streaming nodes -->
+  <rect x="100" y="360" width="200" height="112" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="200" y="392" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Streaming Nodes</text>
+  <text x="200" y="414" text-anchor="middle" font-size="12" fill="#64748b">cell ingress / egress</text>
+  <text x="200" y="432" text-anchor="middle" font-size="12" fill="#64748b">bounded buffers</text>
+  <text x="200" y="450" text-anchor="middle" font-size="12" fill="#64748b">stream error handling</text>
 
-  <rect class="box" x="462" y="382" width="250" height="130" rx="18"/>
-  <text class="text h" x="587" y="423" text-anchor="middle">Cell admission</text>
-  <text class="text body" x="587" y="454" text-anchor="middle">rate limits, SLA guard</text>
-  <text class="text body" x="587" y="480" text-anchor="middle">overload shedding</text>
+  <!-- Cell admission -->
+  <rect x="372" y="360" width="190" height="112" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="467" y="396" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Cell Admission</text>
+  <text x="467" y="420" text-anchor="middle" font-size="12" fill="#64748b">rate limits, SLA guard</text>
+  <text x="467" y="438" text-anchor="middle" font-size="12" fill="#64748b">overload shedding</text>
 
-  <rect class="box blue" x="780" y="382" width="270" height="130" rx="18"/>
-  <text class="text h" x="915" y="423" text-anchor="middle">Model router + schedulers</text>
-  <text class="text body" x="915" y="454" text-anchor="middle">selects instant or thinking lane</text>
-  <text class="text body" x="915" y="480" text-anchor="middle">replica placement, priority</text>
+  <!-- Model router -->
+  <rect x="624" y="360" width="200" height="112" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="724" y="392" text-anchor="middle" font-size="13" font-weight="600" fill="#1e293b">Model Router + Scheduler</text>
+  <text x="724" y="416" text-anchor="middle" font-size="12" fill="#64748b">picks instant / thinking lane</text>
+  <text x="724" y="434" text-anchor="middle" font-size="12" fill="#64748b">replica placement, priority</text>
 
-  <rect class="box blue" x="1140" y="318" width="300" height="280" rx="18"/>
-  <text class="text h" x="1290" y="357" text-anchor="middle">Instant model pool</text>
-  <text class="text body" x="1290" y="385" text-anchor="middle">same resident weights, free + paid</text>
-  <rect class="inner" x="1180" y="406" width="220" height="38" rx="10"/>
-  <text class="text small" x="1290" y="431" text-anchor="middle">Free floor</text>
-  <rect class="inner" x="1180" y="456" width="220" height="38" rx="10"/>
-  <text class="text small" x="1290" y="481" text-anchor="middle">Paid instant floor</text>
-  <rect class="inner" x="1180" y="506" width="220" height="38" rx="10"/>
-  <text class="text small" x="1290" y="531" text-anchor="middle">Shared burst (free + paid)</text>
-  <rect class="standby" x="1180" y="556" width="220" height="38" rx="10"/>
-  <text class="text small" x="1290" y="581" text-anchor="middle">Warm standby</text>
+  <!-- Model-local GPU pools -->
+  <rect x="870" y="300" width="330" height="478" rx="12" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+  <text x="1035" y="330" text-anchor="middle" font-size="14" font-weight="700" fill="#3730a3">Model-Local GPU Pools</text>
 
-  <rect class="box blue" x="1140" y="638" width="300" height="190" rx="18"/>
-  <text class="text h" x="1290" y="677" text-anchor="middle">Thinking model pool</text>
-  <text class="text body" x="1290" y="705" text-anchor="middle">paid higher-compute lane</text>
-  <rect class="inner" x="1180" y="728" width="220" height="32" rx="9"/>
-  <text class="text small" x="1290" y="750" text-anchor="middle">Paid thinking active</text>
-  <rect class="standby" x="1180" y="772" width="220" height="32" rx="9"/>
-  <text class="text small" x="1290" y="794" text-anchor="middle">Thinking warm standby</text>
-  <rect class="cold" x="1180" y="816" width="220" height="32" rx="9"/>
-  <text class="text small" x="1290" y="838" text-anchor="middle">Cold-start capacity</text>
+  <!-- Instant pool -->
+  <rect x="894" y="346" width="282" height="212" rx="10" fill="#ffffff" stroke="#c7d2fe" stroke-width="1.5"/>
+  <text x="1035" y="372" text-anchor="middle" font-size="13" font-weight="600" fill="#3730a3">Instant Model</text>
+  <text x="1035" y="390" text-anchor="middle" font-size="11.5" fill="#64748b">free + paid tiers, resident weights</text>
+  <rect x="916" y="404" width="238" height="28" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1035" y="422" text-anchor="middle" font-size="12" fill="#1e293b">Free floor</text>
+  <rect x="916" y="440" width="238" height="28" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1035" y="458" text-anchor="middle" font-size="12" fill="#1e293b">Paid instant floor</text>
+  <rect x="916" y="476" width="238" height="28" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1035" y="494" text-anchor="middle" font-size="12" fill="#1e293b">Shared burst (free + paid)</text>
+  <rect x="916" y="512" width="238" height="28" rx="7" fill="#ffffff" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="1035" y="530" text-anchor="middle" font-size="12" fill="#1e293b">Warm standby</text>
 
-  <!-- Request path -->
-  <path class="request" d="M560 228 V265 H257.5 V370"/>
-  <rect class="label-bg" x="352" y="238" width="116" height="24" rx="6"/>
-  <text class="text label" x="410" y="256" text-anchor="middle">new admission</text>
-  <path class="request" d="M395 447 H450"/>
-  <path class="request" d="M712 447 H768"/>
-  <path class="request" d="M1050 424 H1128"/>
-  <path class="request" d="M1050 480 H1104 V733 H1128"/>
-  <rect class="label-bg" x="1062" y="386" width="64" height="24" rx="6"/>
-  <text class="text label" x="1094" y="404" text-anchor="middle">instant</text>
-  <rect class="label-bg" x="1030" y="696" width="76" height="24" rx="6"/>
-  <text class="text label" x="1068" y="714" text-anchor="middle">thinking</text>
+  <!-- Thinking pool -->
+  <rect x="894" y="580" width="282" height="176" rx="10" fill="#ffffff" stroke="#c7d2fe" stroke-width="1.5"/>
+  <text x="1035" y="606" text-anchor="middle" font-size="13" font-weight="600" fill="#3730a3">Thinking Model</text>
+  <text x="1035" y="624" text-anchor="middle" font-size="11.5" fill="#64748b">paid only, higher-compute lane</text>
+  <rect x="916" y="638" width="238" height="28" rx="7" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="1035" y="656" text-anchor="middle" font-size="12" fill="#1e293b">Paid thinking active</text>
+  <rect x="916" y="674" width="238" height="28" rx="7" fill="#ffffff" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="1035" y="692" text-anchor="middle" font-size="12" fill="#1e293b">Thinking warm standby</text>
+  <rect x="916" y="710" width="238" height="28" rx="7" fill="#ffffff" stroke="#64748b" stroke-width="1.4" stroke-dasharray="2 5"/>
+  <text x="1035" y="728" text-anchor="middle" font-size="12" fill="#1e293b">Cold-start capacity</text>
 
-  <!-- Token return path -->
-  <path class="stream" d="M1290 598 V615 H1118 V842 H257.5 V512"/>
-  <path class="stream" d="M1140 752 H1118"/>
-  <rect class="label-bg" x="466" y="856" width="398" height="24" rx="6"/>
-  <text class="text label" x="665" y="874" text-anchor="middle" fill="#047481">token stream return path: bounded, no durable queue</text>
-  <path class="stream" d="M120 447 H62 V167.5 H70"/>
-  <rect class="label-bg" x="-451" y="84" width="236" height="24" rx="6" transform="rotate(-90)"/>
-  <text class="text label" x="96" y="333" transform="rotate(-90 96 333)" fill="#047481">stream response on same connection</text>
+  <text x="1035" y="771" text-anchor="middle" font-size="11" font-style="italic" fill="#4338ca">non-fungible without a weight swap</text>
 
-  <!-- Autoscaling control into the cell -->
-  <rect class="label-bg" x="1242" y="252" width="154" height="24" rx="6"/>
-  <text class="text label" x="1319" y="270" text-anchor="middle">autoscaling actions</text>
-  <path class="control" d="M1266 228 V318"/>
-  <path class="control" d="M1368 228 V276 H1490 V733 H1440"/>
+  <!-- REQUEST PATH (solid) -->
+  <!-- Director -> Streaming nodes -->
+  <path d="M 340 188 C 320 260, 250 310, 200 358" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="294" y="284" font-size="11.5" fill="#64748b">new admissions</text>
+  <!-- Streaming -> Admission -->
+  <line x1="302" y1="416" x2="370" y2="416" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <!-- Admission -> Router -->
+  <line x1="564" y1="416" x2="622" y2="416" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <!-- Router -> Instant pool -->
+  <line x1="826" y1="400" x2="866" y2="400" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="846" y="390" text-anchor="middle" font-size="11.5" fill="#64748b">instant</text>
+  <!-- Router -> Thinking pool -->
+  <path d="M 760 474 C 800 540, 805 620, 866 658" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="793" y="570" text-anchor="end" font-size="11.5" fill="#64748b">thinking</text>
 
-  <!-- Legend and notes -->
-  <rect class="inner" x="585" y="704" width="360" height="74" rx="14"/>
-  <path class="request" d="M610 730 H680"/>
-  <text class="text small" x="695" y="735">request admission path</text>
-  <path class="stream" d="M610 758 H680"/>
-  <text class="text small" x="695" y="763">token stream return path</text>
+  <!-- TOKEN STREAM (dashed green) -->
+  <!-- Pools -> Streaming nodes -->
+  <path d="M 868 730 C 640 800, 300 640, 205 478" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowReturn)"/>
+  <text x="520" y="772" text-anchor="middle" font-size="11.5" fill="#047857">tokens pushed direct to streaming nodes, no durable queue</text>
+  <!-- Streaming nodes -> Clients -->
+  <path d="M 98 400 C 50 340, 60 240, 105 178" fill="none" stroke="#059669" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowReturn)"/>
+  <text x="92" y="326" font-size="11.5" fill="#047857">stream tokens</text>
 
-  <text class="text note" x="800" y="890" text-anchor="middle">
-    Instant and thinking capacity are non-fungible without a weight swap; control traffic is separated from request and token-stream paths.
-  </text>
+  <!-- CONTROL: Controller -> Pools -->
+  <line x1="1045" y1="188" x2="1045" y2="297" stroke="#ea580c" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrowControl)"/>
+  <text x="1054" y="226" font-size="11.5" fill="#9a3412">autoscaling actions</text>
+
+  <!-- Legend -->
+  <line x1="60" y1="832" x2="100" y2="832" stroke="#475569" stroke-width="1.8"/>
+  <text x="108" y="836" font-size="12" fill="#475569">request path</text>
+  <line x1="240" y1="832" x2="280" y2="832" stroke="#059669" stroke-width="2" stroke-dasharray="6 5"/>
+  <text x="288" y="836" font-size="12" fill="#047857">token stream (latency-critical, direct)</text>
+  <line x1="560" y1="832" x2="600" y2="832" stroke="#ea580c" stroke-width="1.6" stroke-dasharray="4 4"/>
+  <text x="608" y="836" font-size="12" fill="#9a3412">control plane (forecasts, autoscaling)</text>
+  <rect x="868" y="824" width="40" height="16" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1.4" stroke-dasharray="5 4"/>
+  <text x="918" y="836" font-size="12" fill="#475569">standby / cold capacity (no traffic)</text>
 </svg>
