@@ -2,7 +2,7 @@
 title: 'Designing a Multi-Tenant LLM Inference Platform'
 description: 'Why serving LLMs breaks classic API intuitions, and how to design around the physics: KV cache, continuous batching, placement under uncertainty, and fairness.'
 pubDate: '2026-06-09'
-tags: ['systems', 'system-design', 'llm', 'inference', 'gpu']
+tags: ['system-design', 'llm', 'gpu']
 ---
 
 An LLM inference API looks like an ordinary web service from the outside: an HTTP request goes in, tokens stream back. Inside, almost every classic intuition is wrong. The work is only efficient in giant batches, capacity is capped by memory you measure in gigabytes, and a single request can hold a GPU hostage for minutes.

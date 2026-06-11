@@ -39,9 +39,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <div class="site-shell">
       <header class="site-header">
         <a class="site-title" href="/">David Nguyen</a>
-        <nav aria-label="Primary navigation">
-          <a href="https://www.linkedin.com/in/davidnd" target="_blank">LinkedIn</a>
-        </nav>
       </header>
       <main>
         <slot />
@@ -50,6 +47,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <span>David Nguyen</span>
         <span class="foot-heart" aria-hidden="true">♥️</span>
         <span>Da Nang, Vietnam</span>
+        <a
+          class="foot-link"
+          href="https://www.linkedin.com/in/davidnd"
+          target="_blank"
+          rel="noopener">LinkedIn</a
+        >
       </footer>
     </div>
   </body>
@@ -72,5 +75,15 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: #e11d48;
     opacity: 1;
     margin: 0 -6px;
+  }
+  .foot-link {
+    margin-left: auto;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .foot-link:hover {
+    color: var(--accent);
   }
 </style>

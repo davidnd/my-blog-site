@@ -2,7 +2,7 @@
 title: 'Designing a Distributed Task Scheduler'
 description: 'A production-realistic walkthrough of building a scheduler that fires hundreds of millions of jobs reliably, fairly, and on time.'
 pubDate: '2026-06-06'
-tags: ['distributed-systems', 'architecture', 'scheduling', 'backend']
+tags: ['distributed-systems', 'scheduling', 'architecture']
 ---
 
 Almost every backend eventually grows a need to run work *later*: send this email in three days, run this billing rollup every night at 02:00, retry this webhook with backoff, kick off a batch job at midnight UTC. Sprinkle these timers across a hundred services and you get duplicated, fragile, half correct implementations.

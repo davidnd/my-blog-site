@@ -67,15 +67,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <div class="wrap">
       <header class="mast">
         <a class="mast-name" href="/">David Nguyen</a>
-        <nav class="mast-nav">
-          <a
-            class="mast-link"
-            href="https://www.linkedin.com/in/davidnd"
-            target="_blank"
-          >
-            LinkedIn
-          </a>
-        </nav>
       </header>
 
       <a class="back" href="/">
@@ -128,6 +119,14 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         <span>David Nguyen</span>
         <span class="foot-heart" aria-hidden="true">♥️</span>
         <span>Da Nang, Vietnam</span>
+        <a
+          class="foot-link"
+          href="https://www.linkedin.com/in/davidnd"
+          target="_blank"
+          rel="noopener"
+        >
+          LinkedIn
+        </a>
       </footer>
     </div>
   </body>
@@ -155,23 +154,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     letter-spacing: 0.02em;
     color: var(--ink);
     text-decoration: none;
-  }
-  .mast-link {
-    font-family: var(--sans);
-    font-weight: 500;
-    font-size: 13px;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    text-decoration: none;
-    transition: color 0.15s ease;
-  }
-  .mast-link:hover {
-    color: var(--accent);
-  }
-  .mast-nav {
-    display: flex;
-    align-items: baseline;
-    gap: 18px;
   }
 
   /* ---------- back link ---------- */
@@ -305,6 +287,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   .foot a:hover {
     color: var(--accent);
   }
+  .foot-link {
+    margin-left: auto;
+    letter-spacing: 0.08em;
+    transition: color 0.15s ease;
+  }
   .foot-heart {
     color: #e11d48;
     opacity: 1;
@@ -313,7 +300,6 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
   /* ---------- focus ---------- */
   .mast-name:focus-visible,
-  .mast-link:focus-visible,
   .back:focus-visible,
   .arc-link:focus-visible,
   .foot a:focus-visible {

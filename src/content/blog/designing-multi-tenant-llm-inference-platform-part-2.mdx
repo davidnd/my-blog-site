@@ -3,10 +3,8 @@ title: "Designing a Multi-Tenant LLM Inference Platform, Part 2"
 description: "Scaling a serving cell when cold starts take minutes: sizing warm spare from forecast error, model-local standby, draining, and failing honestly when the KV cache is gone."
 pubDate: "2026-06-11"
 tags:
-  - systems
   - system-design
   - llm
-  - inference
   - gpu
 ---
 
@@ -29,15 +27,12 @@ I would not treat the platform as one global GPU pool. I would split it into ser
 The boundary follows from the no-migration rule in Part 1. Once a request starts prefill, its KV cache lives on one replica, so the cell that admitted it owns its whole lifecycle. A global router can steer *new* traffic away from a hot cell. It cannot rescue generations already running there. That asymmetry is the design: blast radius is one cell, and everything stateful stays inside it.
 
 ## Architecture
-
+A serving cell owns admission, streaming, and model-local GPU pools. Instant and thinking capacity are non-fungible without a weight swap, which is a cold-start-class operation.
 <figure className="architecture-diagram">
   <img
     src="/images/llm-inference-serving-cell.svg"
     alt="Architecture diagram of a multi-tenant LLM inference serving platform with global router, serving cell, instant and thinking model pools, warm standby, admission control, and streaming nodes"
   />
-  <figcaption>
-    A serving cell owns admission, streaming, and model-local GPU pools. Instant and thinking capacity are non-fungible without a weight swap, which is a cold-start-class operation.
-  </figcaption>
 </figure>
 
 ## Size the warm pool from forecast error

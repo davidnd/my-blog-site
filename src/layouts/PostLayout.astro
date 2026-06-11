@@ -3,7 +3,7 @@ import BaseLayout from "./BaseLayout.astro";
 import GiscusComments from "../components/GiscusComments.astro";
 import { tagSlug } from "../lib/posts";
 
-const { post } = Astro.props;
+const { post, minutesRead } = Astro.props;
 const formattedDate = new Intl.DateTimeFormat("en", {
   year: "numeric",
   month: "long",
@@ -34,22 +34,32 @@ const formattedDate = new Intl.DateTimeFormat("en", {
       </a>
       <h1>{post.data.title}</h1>
       <p class="post-description">{post.data.description}</p>
-      {
-        post.data.tags.length > 0 && (
-          <ul class="tag-list" aria-label="Tags">
-            {post.data.tags.map((tag) => (
-              <li>
-                <a href={`/tags/${tagSlug(tag)}/`}>{tag}</a>
-              </li>
-            ))}
-          </ul>
-        )
-      }
-      <p class="post-date">{formattedDate}</p>
+      <p class="post-meta">
+        <time datetime={post.data.pubDate.toISOString()}>{formattedDate}</time>
+        {
+          minutesRead && (
+            <>
+              <span class="post-meta-sep" aria-hidden="true">·</span>
+              <span>{minutesRead} min read</span>
+            </>
+          )
+        }
+      </p>
     </header>
     <div class="prose">
       <slot />
     </div>
+    {
+      post.data.tags.length > 0 && (
+        <ul class="tag-list" aria-label="Tags">
+          {post.data.tags.map((tag) => (
+            <li>
+              <a href={`/tags/${tagSlug(tag)}/`}>{tag}</a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
     <GiscusComments
       comments={post.data.comments}
       reactions={post.data.reactions}

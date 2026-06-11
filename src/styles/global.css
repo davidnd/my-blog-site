@@ -102,25 +102,6 @@ pre {
   text-decoration: none;
 }
 
-.site-header nav {
-  display: flex;
-  align-items: baseline;
-  gap: 18px;
-}
-
-.site-header nav a {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.site-header nav a:hover {
-  color: var(--accent);
-}
-
 .intro {
   max-width: 620px;
   padding: 14px 0 38px;
@@ -128,6 +109,7 @@ pre {
 
 .eyebrow,
 .post-date,
+.post-meta,
 .back-link,
 .tag-list,
 .post-item time {
@@ -271,9 +253,19 @@ h3 {
   transform: translateX(-2px);
 }
 
-/* Date moved to the bottom of the header, below the tags. */
-.post-header .post-date {
-  margin: 26px 0 0;
+/* Meta line (date · reading time) sits directly under the description. */
+.post-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.post-meta-sep {
+  color: var(--faint);
 }
 
 .post-description {
@@ -283,12 +275,14 @@ h3 {
   font-size: 21px;
 }
 
+/* Tags now sit at the foot of the post, just under the content. The comments
+   section below supplies the only divider, so the tags don't need their own. */
 .tag-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 0;
-  margin: 22px 0 0;
+  margin: 28px 0 0;
   list-style: none;
 }
 
