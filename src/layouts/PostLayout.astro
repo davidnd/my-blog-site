@@ -14,7 +14,24 @@ const formattedDate = new Intl.DateTimeFormat("en", {
 <BaseLayout title={post.data.title} description={post.data.description}>
   <article class="post">
     <header class="post-header">
-      <a class="back-link" href="/">Back to all posts</a>
+      <a class="back-link" href="/">
+        <svg
+          class="back-link__arrow"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M9.5 3.5L5 8l4.5 4.5"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+        <span>All posts</span>
+      </a>
       <h1>{post.data.title}</h1>
       <p class="post-description">{post.data.description}</p>
       {

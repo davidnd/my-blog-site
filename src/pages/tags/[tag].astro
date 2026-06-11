@@ -78,7 +78,24 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
         </nav>
       </header>
 
-      <a class="back" href="/">← All posts</a>
+      <a class="back" href="/">
+        <svg
+          class="back__arrow"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M9.5 3.5L5 8l4.5 4.5"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+        <span>All posts</span>
+      </a>
 
       <div class="lede">
         <h1 class="blog-title">#{tag}</h1>
@@ -133,9 +150,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
   }
   .mast-name {
     font-family: var(--sans);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 15px;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     color: var(--ink);
     text-decoration: none;
   }
@@ -159,16 +176,29 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
   /* ---------- back link ---------- */
   .back {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--sans);
     font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     color: var(--muted);
     text-decoration: none;
-    margin-bottom: 20px;
+    margin-bottom: 26px;
+    margin-left: -4px;
+    padding: 4px 4px 4px 2px;
+    border-radius: 6px;
     transition: color 0.15s ease;
+  }
+  .back__arrow {
+    transition: transform 0.15s ease;
   }
   .back:hover {
     color: var(--accent);
+  }
+  .back:hover .back__arrow {
+    transform: translateX(-2px);
   }
 
   /* ---------- lede ---------- */
