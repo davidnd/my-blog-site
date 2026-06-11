@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@astrojs/mdx": "latest",
+    "@astrojs/sitemap": "^3.7.3",
     "astro": "latest"
   }
 }
