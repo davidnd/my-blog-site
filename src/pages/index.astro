@@ -30,6 +30,7 @@ const iso = (date: Date) => date.toISOString();
 
 const pageDescription =
   "Notes on software, systems, and the things I am learning.";
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -39,7 +40,14 @@ const pageDescription =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={pageDescription} />
     <meta name="generator" content={Astro.generator} />
+    <meta name="google-site-verification" content="nMH_nou9tCnBlWYeaEvoWZPPuIHw6_VASkph64sBhvQ" />
     <title>David Nguyen</title>
+    <link rel="canonical" href={canonicalURL} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="David Nguyen" />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

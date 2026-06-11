@@ -40,6 +40,7 @@ const shortDate = new Intl.DateTimeFormat("en", {
 const postHref = (post: (typeof posts)[number]) => `/blog/${post.id}/`;
 const iso = (date: Date) => date.toISOString();
 const count = posts.length;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -49,7 +50,14 @@ const count = posts.length;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={`Posts tagged "${tag}".`} />
     <meta name="generator" content={Astro.generator} />
+    <meta name="google-site-verification" content="nMH_nou9tCnBlWYeaEvoWZPPuIHw6_VASkph64sBhvQ" />
     <title>{`#${tag}`} | David Nguyen</title>
+    <link rel="canonical" href={canonicalURL} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={`#${tag} | David Nguyen`} />
+    <meta property="og:description" content={`Posts tagged "${tag}".`} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

@@ -3,6 +3,6 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 
 export default defineConfig({
-  site: "https://davidnd.pages.dev",
+  site: "https://davidnd.dev",
   integrations: [mdx(), sitemap()],
 });
