@@ -121,8 +121,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 
       <footer class="foot">
         <span>David Nguyen</span>
-        <span class="foot-heart" aria-hidden="true">♥</span>
+        <span class="foot-heart" aria-hidden="true">♡</span>
         <span>Da Nang, Vietnam</span>
+        <span class="foot-heart" aria-hidden="true">♡</span>
         <a
           class="foot-link"
           href="https://www.linkedin.com/in/davidnd"
@@ -178,7 +179,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     line-height: 1.5;
     color: var(--muted);
     margin: 0;
-    max-width: 46ch;
+    max-width: 100%;
   }
 
   /* ---------- featured (latest) ---------- */
@@ -302,11 +303,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     flex-shrink: 0;
   }
   .arc-title {
-    font-family: var(--slab);
+    font-family: var(--serif);
     font-weight: 400;
-    font-size: 18px;
-    line-height: 1.3;
-    color: var(--ink);
+    font-size: 17px;
+    line-height: 1.35;
+    color: var(--muted);
     text-decoration: underline;
     text-decoration-color: transparent;
     text-underline-offset: 3px;
@@ -336,6 +337,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: var(--faint);
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 14px;
   }
   .foot a {
@@ -346,12 +348,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: var(--accent);
   }
   .foot-link {
-    margin-left: auto;
+    margin-left: 0;
     transition: color 0.15s ease;
   }
   .foot-heart {
-    color: #b5635a;
-    font-size: 12px;
+    color: var(--faint);
+    font-size: 13px;
     margin: 0 -4px;
   }
 
