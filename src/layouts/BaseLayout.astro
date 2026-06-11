@@ -31,6 +31,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
     <meta name="twitter:card" content="summary" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -45,7 +48,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       </main>
       <footer class="foot">
         <span>David Nguyen</span>
-        <span class="foot-heart" aria-hidden="true">♥️</span>
+        <span class="foot-heart" aria-hidden="true">♥</span>
         <span>Da Nang, Vietnam</span>
         <a
           class="foot-link"
@@ -72,14 +75,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     gap: 14px;
   }
   .foot-heart {
-    color: #e11d48;
-    opacity: 1;
-    margin: 0 -6px;
+    color: #b5635a;
+    font-size: 12px;
+    margin: 0 -4px;
   }
   .foot-link {
     margin-left: auto;
-    color: var(--muted);
-    letter-spacing: 0.08em;
+    color: inherit;
     text-decoration: none;
     transition: color 0.15s ease;
   }
