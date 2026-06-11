@@ -39,87 +39,8 @@ The traffic is diurnal and has two nasty spikes: a top of hour thundering herd w
 
 ## Architecture at a glance
 
-<figure className="architecture-diagram" aria-label="Distributed task scheduler architecture">
-  <svg viewBox="0 0 1100 620" role="img">
-    <defs>
-      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" />
-      </marker>
-      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 5 L 0 10 z" />
-      </marker>
-    </defs>
-    <title>Distributed task scheduler architecture</title>
-
-    <g className="diagram-node">
-      <rect x="40" y="60" width="240" height="76" rx="8" />
-      <text x="160" y="92">Internal services</text>
-      <text x="160" y="115" className="diagram-sub">one-shot + scheduled</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="40" y="185" width="240" height="76" rx="8" />
-      <text x="160" y="217">Recurrent job creator</text>
-      <text x="160" y="240" className="diagram-sub">cron expand + jitter</text>
-    </g>
-    <g className="diagram-node diagram-store">
-      <rect x="370" y="112" width="270" height="118" rx="8" />
-      <text x="505" y="148">Timer store</text>
-      <text x="505" y="171" className="diagram-sub">bucketed</text>
-      <text x="505" y="194" className="diagram-sub">PK=(bucket, shard)</text>
-      <text x="505" y="217" className="diagram-sub">SK=(tenant, run_at)</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="820" y="60" width="240" height="76" rx="8" />
-      <text x="940" y="92">Coordinator</text>
-      <text x="940" y="115" className="diagram-sub">etcd / ZK - shard ownership</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="820" y="185" width="240" height="76" rx="8" />
-      <text x="940" y="217">Scanner pool</text>
-      <text x="940" y="240" className="diagram-sub">per-tenant cursor - local DRR</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="370" y="315" width="270" height="76" rx="8" />
-      <text x="505" y="347">Ready queue</text>
-      <text x="505" y="370" className="diagram-sub">per-tenant lanes</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="820" y="315" width="240" height="76" rx="8" />
-      <text x="940" y="359">Dispatcher</text>
-    </g>
-    <g className="diagram-node">
-      <rect x="370" y="475" width="270" height="76" rx="8" />
-      <text x="505" y="507">Worker pool</text>
-      <text x="505" y="530" className="diagram-sub">visibility timeout - idempotent</text>
-    </g>
-    <g className="diagram-node diagram-store">
-      <rect x="40" y="475" width="240" height="76" rx="8" />
-      <text x="160" y="519">Audit sink</text>
-    </g>
-    <g className="diagram-node diagram-store">
-      <rect x="820" y="475" width="240" height="76" rx="8" />
-      <text x="940" y="519">Dead-letter queue</text>
-    </g>
-
-    <path className="diagram-line" d="M 280 98 H 370" />
-    <path className="diagram-line" d="M 280 223 H 370" />
-    <path className="diagram-line" d="M 640 171 C 710 171 750 223 820 223" />
-    <path className="diagram-line diagram-muted" d="M 940 136 V 185" />
-    <path className="diagram-line" d="M 940 261 V 286 H 505 V 315" />
-    <path className="diagram-line" d="M 640 353 H 820" />
-    <path className="diagram-line" d="M 940 391 V 430 H 505 V 475" />
-    <path className="diagram-line" d="M 370 513 H 280" />
-    <path className="diagram-line" d="M 640 513 H 820" />
-    <path className="diagram-line" d="M 420 475 C 290 430 250 300 370 230" />
-
-    <text x="940" y="164" className="diagram-label">assigns shards</text>
-    <text x="690" y="300" className="diagram-label">promote due jobs</text>
-    <text x="740" y="340" className="diagram-label">dispatch</text>
-    <text x="690" y="424" className="diagram-label">execute</text>
-    <text x="270" y="365" className="diagram-label">retry with backoff</text>
-    <text x="325" y="501" className="diagram-label">success</text>
-    <text x="730" y="501" className="diagram-label">max retries</text>
-  </svg>
+<figure className="architecture-diagram">
+  <img src="/images/distributed-task-scheduler.svg" alt="Architecture diagram of a distributed task scheduler showing submission sources, durable timing plane, scanner pool, ready queue, dispatcher, worker pool, audit sink, retries, and dead-letter queue" />
 </figure>
 
 The flow, end to end:

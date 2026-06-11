@@ -1,0 +1,106 @@
+<svg viewBox="0 0 1280 780" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRetry" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arrowControl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="780" fill="#ffffff"/>
+  <text x="640" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">Distributed Task Scheduler</text>
+  <text x="640" y="66" text-anchor="middle" font-size="13" fill="#64748b">Jobs wait durably in time buckets, scanners promote due work, workers execute with retry and audit paths.</text>
+
+  <!-- Submission sources -->
+  <rect x="60" y="116" width="190" height="86" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="155" y="148" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Internal Services</text>
+  <text x="155" y="170" text-anchor="middle" font-size="12" fill="#64748b">one-shot jobs</text>
+  <text x="155" y="188" text-anchor="middle" font-size="12" fill="#64748b">delayed jobs</text>
+
+  <rect x="60" y="246" width="190" height="86" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="155" y="278" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Cron Expander</text>
+  <text x="155" y="300" text-anchor="middle" font-size="12" fill="#64748b">materializes runs</text>
+  <text x="155" y="318" text-anchor="middle" font-size="12" fill="#64748b">adds jitter</text>
+
+  <!-- Durable timing domain -->
+  <rect x="315" y="104" width="590" height="252" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="339" y="136" font-size="15" font-weight="700" fill="#334155">Durable Timing Plane</text>
+  <text x="339" y="154" font-size="11.5" fill="#64748b">500M waiting jobs live here, indexed by fire time</text>
+
+  <rect x="356" y="190" width="260" height="120" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="486" y="222" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Timer Store</text>
+  <text x="486" y="246" text-anchor="middle" font-size="12" fill="#64748b">bucketed by due time</text>
+  <text x="486" y="264" text-anchor="middle" font-size="12" fill="#64748b">PK=(bucket, shard)</text>
+  <text x="486" y="282" text-anchor="middle" font-size="12" fill="#64748b">SK=(tenant, run_at)</text>
+
+  <rect x="676" y="124" width="190" height="80" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="771" y="156" text-anchor="middle" font-size="14" font-weight="600" fill="#3730a3">Coordinator</text>
+  <text x="771" y="178" text-anchor="middle" font-size="12" fill="#64748b">leases shards</text>
+
+  <rect x="676" y="244" width="190" height="80" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="771" y="276" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Scanner Pool</text>
+  <text x="771" y="298" text-anchor="middle" font-size="12" fill="#64748b">local DRR by tenant</text>
+
+  <!-- Execution domain -->
+  <rect x="315" y="424" width="590" height="226" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="339" y="456" font-size="15" font-weight="700" fill="#334155">Execution Plane</text>
+  <text x="339" y="474" font-size="11.5" fill="#64748b">only due jobs enter the hot path</text>
+
+  <rect x="356" y="506" width="210" height="86" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="461" y="540" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Ready Queue</text>
+  <text x="461" y="562" text-anchor="middle" font-size="12" fill="#64748b">per-tenant lanes</text>
+
+  <rect x="656" y="506" width="210" height="86" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="761" y="540" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Dispatcher</text>
+  <text x="761" y="562" text-anchor="middle" font-size="12" fill="#64748b">claims visible work</text>
+
+  <rect x="980" y="442" width="230" height="96" rx="10" fill="#ffffff" stroke="#475569" stroke-width="1.5"/>
+  <text x="1095" y="476" text-anchor="middle" font-size="14" font-weight="600" fill="#1e293b">Worker Pool</text>
+  <text x="1095" y="498" text-anchor="middle" font-size="12" fill="#64748b">idempotency key</text>
+  <text x="1095" y="516" text-anchor="middle" font-size="12" fill="#64748b">visibility timeout</text>
+
+  <rect x="980" y="588" width="230" height="76" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="1095" y="620" text-anchor="middle" font-size="14" font-weight="600" fill="#9a3412">Dead-Letter Queue</text>
+  <text x="1095" y="642" text-anchor="middle" font-size="12" fill="#7c2d12">permanent failures</text>
+
+  <rect x="60" y="506" width="190" height="86" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="155" y="540" text-anchor="middle" font-size="14" font-weight="600" fill="#334155">Audit Sink</text>
+  <text x="155" y="562" text-anchor="middle" font-size="12" fill="#64748b">effect record</text>
+
+  <!-- Solid job path -->
+  <line x1="252" y1="159" x2="354" y2="230" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="303" y="180" text-anchor="middle" font-size="11.5" fill="#64748b">submit</text>
+  <line x1="252" y1="289" x2="354" y2="272" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="304" y="302" text-anchor="middle" font-size="11.5" fill="#64748b">expanded runs</text>
+
+  <path d="M 617 250 C 645 250, 650 284, 674 284" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="644" y="242" text-anchor="middle" font-size="11.5" fill="#64748b">due scan</text>
+  <path d="M 771 326 C 771 384, 461 384, 461 504" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="610" y="398" text-anchor="middle" font-size="11.5" fill="#64748b">promote due jobs</text>
+  <line x1="568" y1="549" x2="654" y2="549" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="611" y="538" text-anchor="middle" font-size="11.5" fill="#64748b">dispatch</text>
+  <path d="M 868 549 C 910 549, 930 490, 978 490" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="922" y="518" text-anchor="middle" font-size="11.5" fill="#64748b">execute</text>
+  <path d="M 978 512 C 690 704, 350 642, 252 558" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="556" y="676" text-anchor="middle" font-size="11.5" fill="#64748b">success + idempotent effect</text>
+
+  <!-- Control and retry paths -->
+  <line x1="771" y1="206" x2="771" y2="242" stroke="#4f46e5" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#arrowControl)"/>
+  <text x="812" y="228" font-size="11.5" fill="#4338ca">ownership</text>
+  <path d="M 1088 540 C 990 720, 420 720, 420 594" fill="none" stroke="#ea580c" stroke-width="1.7" stroke-dasharray="5 5" marker-end="url(#arrowRetry)"/>
+  <text x="733" y="736" text-anchor="middle" font-size="11.5" fill="#9a3412">retry with backoff re-enters timer store</text>
+  <line x1="1095" y1="540" x2="1095" y2="586" stroke="#ea580c" stroke-width="1.7" stroke-dasharray="5 5" marker-end="url(#arrowRetry)"/>
+  <text x="1110" y="568" font-size="11.5" fill="#9a3412">max retries</text>
+
+  <!-- Legend -->
+  <line x1="60" y1="730" x2="100" y2="730" stroke="#475569" stroke-width="1.8"/>
+  <text x="108" y="734" font-size="12" fill="#475569">job path</text>
+  <line x1="210" y1="730" x2="250" y2="730" stroke="#4f46e5" stroke-width="1.6" stroke-dasharray="4 4"/>
+  <text x="258" y="734" font-size="12" fill="#4338ca">coordination lease</text>
+  <line x1="420" y1="730" x2="460" y2="730" stroke="#ea580c" stroke-width="1.7" stroke-dasharray="5 5"/>
+  <text x="468" y="734" font-size="12" fill="#9a3412">retry / failure path</text>
+</svg>
