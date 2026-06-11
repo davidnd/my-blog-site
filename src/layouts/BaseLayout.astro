@@ -48,8 +48,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       </main>
       <footer class="foot">
         <span>David Nguyen</span>
-        <span class="foot-heart" aria-hidden="true">♥</span>
+        <span class="foot-heart" aria-hidden="true">♡</span>
         <span>Da Nang, Vietnam</span>
+        <span class="foot-heart" aria-hidden="true">♡</span>
         <a
           class="foot-link"
           href="https://www.linkedin.com/in/davidnd"
@@ -72,15 +73,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     color: var(--faint);
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 14px;
   }
   .foot-heart {
-    color: #b5635a;
-    font-size: 12px;
+    color: var(--faint);
+    font-size: 13px;
     margin: 0 -4px;
   }
   .foot-link {
-    margin-left: auto;
+    margin-left: 0;
     color: inherit;
     text-decoration: none;
     transition: color 0.15s ease;
