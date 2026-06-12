@@ -1,7 +1,10 @@
 @import url("https://giscus.app/themes/light.css");
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap");
 
 :root {
   color-scheme: light;
+  --site-font-serif: "Source Serif 4", ui-serif, Georgia, Cambria, "Times New Roman", Times,
+    serif;
 }
 
 /* giscus's own themes declare every variable on `main` (the widget root),
@@ -82,7 +85,14 @@ main {
   --color-segmented-control-button-selected-border: rgba(38, 34, 27, 0.22);
 }
 
-.gsc-main {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+html,
+body,
+main,
+.gsc-main,
+.gsc-main *:not(pre):not(code):not(kbd):not(samp),
+button,
+input,
+select,
+textarea {
+  font-family: var(--site-font-serif) !important;
 }
