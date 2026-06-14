@@ -1,0 +1,95 @@
+---
+title: "Designing a Payment Processor: Exactly-Once, State Machines, and a Double-Entry Ledger"
+description: "Turning a payment request into correct money movement: idempotency, the in-doubt transaction, a charge state machine, a double-entry ledger, and a transactional outbox."
+pubDate: "2026-06-14"
+tags: ["system-design", "payments", "distributed-systems", "idempotency", "ledger"]
+---
+
+A payment processor has one deceptively simple job: take a request and turn it into real money movement, exactly once, even when the world fails halfway through. The happy path is never the hard part. The hard part is what happens when a network call hangs, a retry shows up, or two writes need to agree across a boundary you do not control.
+
+This post walks the correctness core of a Stripe-style charge path: idempotency, the in-doubt transaction, the charge state machine, the ledger, and how to keep several writes consistent. Scale and reliability are a separate post.
+
+## Scope
+
+A merchant calls our API to charge a saved card. We move money through an external card network and report the outcome. We are the system of record. Cards are already tokenized, so the request carries a token, not a card number. We support two modes:
+
+```json
+// auth + capture together
+POST /charges
+{ "idempotency_key": "...", "card_token": "...", "amount": 6000, "currency": "USD", "capture": true }
+
+// authorize now, capture later
+POST /charges          { ..., "capture": false }
+POST /charges/:id/capture  { "amount": 6000 }
+```
+
+## Exactly-once: idempotency and the in-doubt transaction
+
+The idempotency key is what makes a retry safe. Three rules carry most of the weight:
+
+1. Reserve the key with a single atomic write (`INSERT ... ON CONFLICT (key) DO NOTHING`), not a read-then-write. A check followed by a separate write is a race: two concurrent duplicates both see "absent" and both charge.
+2. Persist intent **before** calling the network. Store the request fingerprint with a status of `pending`.
+3. On a same-key retry, branch on what you stored. If the request matches and is still in flight, return the current status. If it finished, return the cached response. If the parameters differ, reject.
+
+The failure that actually keeps you up at night is the lost response. You called the network and got nothing back: a timeout, a dropped connection, a crash. The charge may or may not have happened, and you have no way to tell from where you are sitting.
+
+The one rule that matters here is that **an unknown is not a failure.** You cannot resolve an in-doubt charge by assumption. Mark it failed and you invite a double charge on the retry, or a real charge the merchant will deny. So it stays `pending`, and only an authoritative source is allowed to promote it to a terminal state. A background reaper retries an inquiry against the network (sending the same idempotency token, so the network does not charge twice), and reconciliation against the settlement record is the final backstop.
+
+That same rule also dissolves the latency tension. If the network is slow, the synchronous call returns `pending` inside the SLA budget and the terminal outcome arrives later by webhook, with `GET /charges/:id` as a poll fallback for when the webhook gets lost.
+
+<figure className="architecture-diagram">
+  <img src="/images/payment-charge-sequence.svg" alt="Sequence diagram of the charge path: the merchant posts a charge with an idempotency key, the charge service reserves the key in Postgres with an atomic insert, calls the card network to authorize or capture, and on a received response commits the ledger, charge state, idempotency record, and outbox event in one transaction. On timeout it returns 202 pending and a reaper, reconciliation, and webhook resolve the terminal outcome." />
+</figure>
+
+## The charge state machine
+
+`authorize` places a hold. It does not move money, and it is not permanent. The capture-later flow is where the real richness lives: an auth can be voided or expire, a capture can fail while the hold is still good, and a single auth can be captured in parts (think split shipments) up to the authorized amount.
+
+The diagram below is the capture-later machine. The auth+capture mode is just the degenerate case, where `pending` goes straight to `captured` or `declined`.
+
+<figure className="architecture-diagram">
+  <img src="/images/payment-charge-states.svg" alt="State machine for a charge. Pending moves to authorized on a successful auth or to declined on a decline. Authorized moves to pending_captured on capture or to cancelled on void or expiry. Pending_captured moves to captured when the captured sum equals the auth, to partially_captured when it is less, or to cancelled on expiry or rejection. Partially_captured can loop back to pending_captured for another capture or move to cancelled. Captured, declined, and cancelled are terminal." />
+</figure>
+
+A capture that fails transiently stays in `pending_captured`, the same in-doubt principle as before, because the hold is still live and the reaper or reconciliation will resolve it. `cancelled` carries a `reason` (merchant void, issuer reject, expiry) so the events stay distinguishable when you report on them later.
+
+## The money: a double-entry ledger
+
+Two things are non-negotiable. Every posting balances, debits equal to credits, and the ledger is append-only. Corrections are reversing entries, never edits.
+
+Authorization posts nothing. A hold is not a movement, so keeping it off the books means the ledger stays a record of real money and the merchant balance is always exactly the sum of postings. The outstanding hold is tracked as operational state, not on the ledger.
+
+Capture is where money moves, but at capture time all you have is a promise from the network, not cash in your bank. So capture creates a receivable, and settlement (days later, confirmed by reconciliation) converts that receivable into cash with a second posting.
+
+| Event | Debit | Credit |
+|---|---|---|
+| Authorize 100 | (no posting; hold tracked operationally) | |
+| Capture 60 (fee 2) | Settlement receivable 60 | Merchant payable 58, Fee revenue 2 |
+| Settlement confirmed | Cash 60 | Settlement receivable 60 |
+
+The settlement receivable account is exactly what reconciliation diffs against the processor's settlement file. Leave it out and there is nothing on the books to reconcile the cash side against.
+
+## Keeping the writes consistent
+
+A capture touches several writes: the idempotency record, the charge state, the ledger posting, and an event for the webhook. The instinct to fear a dual-write across stores here is usually self-inflicted.
+
+If the idempotency record, charge state, and ledger live in one database, put them in **one transaction**. They commit atomically, and "ledger committed but idempotency did not" stops being a case you handle and becomes a case that cannot happen. The principle is simple: do not distribute writes you can keep in a single transaction. The transactional boundary should follow the consistency requirement, not the org chart. (If you insist on a separate ledger service, you trade that atomicity for eventual consistency bridged by the outbox below, with idempotent posting and reconciliation as the backstop.)
+
+The one write that genuinely cannot join the transaction is the external message queue for the webhook. The fix is the **transactional outbox**: write the event to an `outbox` table in the same transaction as the state change, then a relay publishes it and marks it sent. The event fires if and only if the transaction committed, because it is part of the commit. Delivery is at-least-once and can arrive out of order, so the event carries a stable id and the current charge state, and consumers dedupe and tolerate reordering.
+
+<figure className="architecture-diagram">
+  <img src="/images/payment-charge-writes.svg" alt="Architecture diagram. The merchant posts a charge through an API gateway to the charge service, which calls the card network to authorize or capture. The idempotency record, charge state, append-only ledger, and outbox all commit in a single Postgres transaction. An outbox relay publishes events to a message queue, which delivers the webhook back to the merchant. A reconciliation ingestion service consumes the processor settlement file as the source of truth and routes mismatches to a processor that posts reversing entries to the ledger." />
+</figure>
+
+## Reconciliation is the backstop
+
+The processor's settlement file is the real source of truth for what moved. Reconciliation ingests it, diffs it against the ledger, and routes mismatches to a processor that posts reversing adjustments or escalates. This is what promotes the in-doubt charges the reaper could not resolve, and it is the reason the receivable account and the append-only ledger earn their place in the design.
+
+## Principles worth keeping
+
+- An unknown is not a failure. In-doubt money stays in-doubt until an authoritative source resolves it.
+- Reserve idempotency keys with one atomic write, and persist intent before the side effect.
+- A hold is not a movement. Authorization stays off the ledger.
+- Capture creates a receivable; settlement creates cash. Reconciliation closes the loop.
+- The ledger is append-only. Corrections are reversing entries.
+- Do not distribute writes you can keep in one transaction. For the boundary you cannot avoid, use a transactional outbox.
