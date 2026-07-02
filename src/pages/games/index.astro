@@ -1,0 +1,146 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+// Games I have built. Each `href` points at a self-contained game under
+// public/games/<slug>/, and `thumb` is a square SVG in public/images/games/.
+const games = [
+  {
+    title: "Big Fish Eat Small Fish",
+    href: "/games/fish/",
+    thumb: "/images/games/fish.svg",
+    blurb: "Eat smaller fish, evolve from fry to shark, and dodge anything bigger than you.",
+  },
+];
+---
+
+<BaseLayout
+  title="Games"
+  description="Small browser games I have built. Click a tile to play."
+>
+  <div class="intro">
+    <h1>Games</h1>
+    <p>Small things I built for fun. Click a tile to play, right here in the browser.</p>
+  </div>
+
+  <ul class="games-grid">
+    {
+      games.map((game) => (
+        <li>
+          <a class="game-card" href={game.href}>
+            <span class="game-thumb">
+              <img src={game.thumb} alt={`${game.title} thumbnail`} width="400" height="400" loading="lazy" />
+            </span>
+            <span class="game-info">
+              <span class="game-name">{game.title}</span>
+              <span class="game-blurb">{game.blurb}</span>
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</BaseLayout>
+
+<style>
+  .intro h1 {
+    font-family: var(--slab);
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+    margin: 0 0 12px;
+  }
+  .intro p {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .games-grid {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 192px));
+    justify-content: start;
+    gap: 28px;
+  }
+
+  .game-card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .game-thumb {
+    display: block;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: #04263f;
+    transition:
+      border-color 0.15s ease,
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .game-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .game-card:hover .game-thumb {
+    border-color: var(--rule-strong);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(4, 38, 63, 0.22);
+  }
+
+  .game-info {
+    display: block;
+    padding: 14px 2px 0;
+  }
+  .game-name {
+    display: block;
+    font-family: var(--slab);
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 1.25;
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease, color 0.15s ease;
+  }
+  .game-card:hover .game-name {
+    color: var(--accent);
+    text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  }
+  .game-blurb {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  .game-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .games-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 20px;
+    }
+    .intro h1 {
+      font-size: 28px;
+    }
+  }
+</style>

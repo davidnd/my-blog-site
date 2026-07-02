@@ -236,13 +236,51 @@ function setState(s) {
   $('gameover').classList.toggle('hidden', s !== 'over');
   $('hud').classList.toggle('hidden', s === 'menu');
   canvas.style.cursor = (s === 'playing') ? 'none' : 'default';
+  // Grab the cursor while playing (called from the button/key gesture that starts
+  // or resumes a game); release it everywhere else so menus, the name field, and
+  // buttons are clickable again.
+  if (s === 'playing') requestLock();
+  else exitLock();
   Music.play('theme');
 }
 
 // ============================================================ input
 const mouse = { x: W / 2, y: H / 2 };
 const keys = {};
-window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+// Pointer Lock: hide and confine the real cursor while playing so it can never
+// reach a screen edge — which otherwise freezes the fish against a wall (no more
+// mousemove events fire) or trips the macOS Dock. Input arrives as relative
+// deltas that we accumulate into a virtual cursor clamped to the canvas.
+// Falls back to the absolute cursor (+ freeze-on-leave) where lock is unavailable.
+let locked = false;
+const hasPointerLock = 'requestPointerLock' in Element.prototype;
+function requestLock() {
+  if (!hasPointerLock || locked) return;
+  try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch {}
+}
+function exitLock() {
+  if (document.pointerLockElement) { try { document.exitPointerLock(); } catch {} }
+}
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  if (!locked && state === 'playing') setState('paused'); // Esc released the lock
+});
+canvas.addEventListener('click', () => { if (state === 'playing' && !locked) requestLock(); });
+
+window.addEventListener('mousemove', e => {
+  if (locked) {
+    mouse.x = clamp(mouse.x + e.movementX, 0, W);
+    mouse.y = clamp(mouse.y + e.movementY, 0, H);
+  } else {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+  }
+});
+document.addEventListener('mouseleave', () => {
+  // Fallback path only: park the target on the fish so it stops instead of
+  // drifting off-screen. When locked, the cursor can't leave in the first place.
+  if (!locked && state === 'playing' && player) { mouse.x = player.x; mouse.y = player.y; }
+});
 window.addEventListener('touchmove', e => {
   const t = e.touches[0];
   mouse.x = t.clientX; mouse.y = t.clientY;
@@ -251,7 +289,11 @@ window.addEventListener('touchmove', e => {
 window.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT') return; // typing a name, not playing
   keys[e.key.toLowerCase()] = true;
-  if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (state === 'playing' || state === 'paused')) {
+  // P always toggles pause. Esc is owned by Pointer Lock (it exits the lock, which
+  // pauses via pointerlockchange), so only wire Esc→pause on the fallback path.
+  if ((e.key === 'p' || e.key === 'P') && (state === 'playing' || state === 'paused')) {
+    togglePause();
+  } else if (e.key === 'Escape' && !hasPointerLock && (state === 'playing' || state === 'paused')) {
     togglePause();
   }
   if (e.key === 'm' || e.key === 'M') toggleMute();
