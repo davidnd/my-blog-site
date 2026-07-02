@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 4321,
       "autoPort": false
+    },
+    {
+      "name": "pages",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "wrangler", "pages", "dev", "dist", "--kv", "SCORES", "--port", "8788"],
+      "port": 8788
     }
   ]
 }

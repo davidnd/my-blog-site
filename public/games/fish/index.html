@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Fish Eat Small Fish</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; background: #04263f; }
+  #game { display: block; width: 100%; height: 100%; cursor: none; }
+
+  /* HUD */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; color: #eaf6ff; text-shadow: 0 1px 3px rgba(0,0,0,.6);
+    user-select: none;
+  }
+  #hud.hidden { display: none; }
+  #hud-left { display: flex; flex-direction: column; gap: 6px; }
+  #score { font-size: 26px; font-weight: bold; }
+  #level-name { font-size: 15px; opacity: .95; }
+  #xp-wrap { width: 200px; height: 10px; background: rgba(255,255,255,.18); border-radius: 5px; overflow: hidden; }
+  #xp-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd351, #ff9f43); border-radius: 5px; transition: width .15s; }
+  #hud-right { display: flex; gap: 8px; pointer-events: auto; }
+  .hud-btn {
+    background: rgba(6, 46, 74, .75); color: #eaf6ff; border: 1px solid rgba(160,220,255,.35);
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+  }
+  .hud-btn:hover { background: rgba(20, 76, 116, .85); }
+
+  /* Overlays */
+  .overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(2, 20, 36, .72); backdrop-filter: blur(3px); z-index: 10;
+  }
+  .overlay.hidden { display: none; }
+  .panel {
+    background: linear-gradient(180deg, rgba(8,52,84,.96), rgba(4,32,56,.96));
+    border: 1px solid rgba(160,220,255,.3); border-radius: 16px;
+    padding: 32px 40px; text-align: center; color: #eaf6ff;
+    box-shadow: 0 12px 50px rgba(0,0,0,.5); max-width: 480px; width: 92%;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .panel h1 { font-size: 34px; margin-bottom: 6px; letter-spacing: 1px; }
+  .panel h2 { font-size: 26px; margin-bottom: 10px; }
+  .panel p.sub { opacity: .8; font-size: 14px; margin-bottom: 18px; line-height: 1.5; }
+  .big-btn {
+    display: inline-block; background: linear-gradient(180deg, #2fa8e0, #1877b4);
+    border: none; color: #fff; font-size: 18px; font-weight: bold;
+    padding: 13px 38px; border-radius: 10px; cursor: pointer; margin: 6px 4px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  }
+  .big-btn:hover { filter: brightness(1.12); }
+  .big-btn.secondary { background: linear-gradient(180deg, #3d5a73, #2b3f52); font-weight: normal; font-size: 15px; }
+  #final-score { font-size: 44px; font-weight: bold; color: #ffd351; margin: 8px 0 14px; }
+  #death-reason { opacity: .85; margin-bottom: 4px; }
+
+  /* Leaderboard */
+  table.lb { width: 100%; border-collapse: collapse; margin: 14px 0 18px; font-size: 14px; }
+  table.lb th { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(160,220,255,.3); opacity: .75; font-weight: normal; }
+  table.lb td { padding: 6px 8px; border-bottom: 1px solid rgba(160,220,255,.12); text-align: left; }
+  table.lb tr.latest td { color: #ffd351; font-weight: bold; }
+  .lb-empty { opacity: .6; font-size: 14px; margin: 14px 0 18px; }
+
+  /* Name entry on game over */
+  #name-entry.hidden { display: none; }
+  #name-entry .top10-msg { color: #7bed9f; font-size: 15px; margin-bottom: 8px; }
+  #player-name {
+    background: rgba(2, 24, 42, .8); border: 1px solid rgba(160,220,255,.4); border-radius: 8px;
+    color: #eaf6ff; font-size: 16px; padding: 11px 14px; width: 200px; text-align: center;
+    margin-right: 4px; outline: none; vertical-align: middle;
+  }
+  #player-name:focus { border-color: #2fa8e0; }
+  #name-entry .big-btn { font-size: 15px; padding: 11px 20px; vertical-align: middle; }
+  #save-status { font-size: 13.5px; opacity: .85; min-height: 18px; margin: 4px 0 2px; }
+
+  /* Evolution guide on menu */
+  .evo-row { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; font-size: 12.5px; opacity: .85; margin-bottom: 16px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hud-left">
+    <div id="score">0</div>
+    <div id="level-name">Lv 1 · Fry</div>
+    <div id="xp-wrap"><div id="xp-bar"></div></div>
+  </div>
+  <div id="hud-right">
+    <button class="hud-btn" id="btn-mute" title="Mute (M)">🔊</button>
+    <button class="hud-btn" id="btn-pause">⏸ Pause (P)</button>
+    <button class="hud-btn" id="btn-restart">↻ New Game</button>
+  </div>
+</div>
+
+<!-- Main menu -->
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>🐟 Big Fish Eat Small Fish</h1>
+    <p class="sub">Move with the mouse (or WASD / arrows). Eat fish smaller than you to grow and evolve.<br>Bigger fish will eat <em>you</em>. Press <b>P</b> to pause, <b>M</b> to mute.</p>
+    <div class="evo-row">Fry → Goldfish → Angelfish → Lionfish → Barracuda → 👑 Shark King</div>
+    <button class="big-btn" id="btn-start">▶ Start New Game</button>
+    <h2 style="font-size:18px; margin-top:22px;">🏆 Leaderboard — Top 10</h2>
+    <div id="lb-menu"></div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="overlay hidden">
+  <div class="panel">
+    <h2>⏸ Paused</h2>
+    <p class="sub">The ocean is holding its breath…</p>
+    <button class="big-btn" id="btn-resume">▶ Resume (P)</button><br>
+    <button class="big-btn secondary" id="btn-quit">↻ New Game</button>
+  </div>
+</div>
+
+<!-- Game over -->
+<div id="gameover" class="overlay hidden">
+  <div class="panel">
+    <h2>💀 You Got Eaten!</h2>
+    <div id="death-reason"></div>
+    <div id="final-score">0</div>
+    <div id="name-entry" class="hidden">
+      <p class="top10-msg">🎉 You made the top 10! Enter your name:</p>
+      <input id="player-name" maxlength="20" placeholder="Your name" autocomplete="off">
+      <button class="big-btn" id="btn-save-score">💾 Save</button>
+    </div>
+    <div id="save-status"></div>
+    <h2 style="font-size:18px;">🏆 Leaderboard — Top 10</h2>
+    <div id="lb-over"></div>
+    <button class="big-btn" id="btn-again">▶ Play Again</button>
+    <button class="big-btn secondary" id="btn-menu">Menu</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ============================================================ setup
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+// Hard cap: no fish radius may exceed 11% of the shorter screen dimension,
+// so total fish length stays well under ~30% of the screen.
+const sizeCap = () => Math.min(W, H) * 0.11;
+
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ============================================================ player levels
+// `need` = food points required to evolve to the NEXT level.
+// Food points = the `value` of each fish eaten (bigger prey feeds more).
+const LEVELS = [
+  { name: 'Fry',        r: 14, need: 12  },
+  { name: 'Goldfish',   r: 20, need: 35  },
+  { name: 'Angelfish',  r: 27, need: 80  },
+  { name: 'Lionfish',   r: 36, need: 160 },
+  { name: 'Barracuda',  r: 47, need: 280 },
+  { name: 'Shark King', r: 60, need: Infinity },
+];
+
+// Distinct look for every evolution stage.
+const PLAYER_STYLES = [
+  { body: '#9fb96e', belly: '#d6e2ae', elong: 1.15, tail: 0.85, dorsal: 0.6 },                                        // Fry: drab olive tadpole
+  { body: '#ff9f43', belly: '#ffd9a0', elong: 1.10, tail: 1.15, dorsal: 0.9, fancyTail: true },                       // Goldfish: orange, flowy tail
+  { body: '#f9ca24', belly: '#f7efb2', elong: 0.95, tail: 1.0, dorsal: 1.6, stripes: 3, stripeColor: '#2d3436' },     // Angelfish: yellow, black bands, tall fin
+  { body: '#e17055', belly: '#ffd3c2', elong: 1.05, tail: 1.0, dorsal: 1.3, stripes: 4, stripeColor: '#fff5f0', spikes: true }, // Lionfish: red-white stripes + spines
+  { body: '#8395a7', belly: '#dfe6e9', elong: 1.75, tail: 0.85, dorsal: 0.8, teeth: true },                           // Barracuda: long silver torpedo, teeth
+  { body: '#576574', belly: '#c8d6e5', elong: 1.45, tail: 1.1, dorsal: 1.8, teeth: true, crown: true },               // Shark King: shark fin, teeth, crown
+];
+
+// ============================================================ enemy species
+// All species can spawn from the very start — the ocean is dangerous everywhere.
+// Weights shift from wStart to wEnd as difficulty ramps, favoring bigger fish.
+const SPECIES = [
+  { name: 'Guppy',      rMin:  9, rMax: 13, spd: [ 40,  75], value: 1,  wStart: 30, wEnd:  8,
+    style: { body: '#ff9f43', belly: '#ffd9a0', elong: 1.15, tail: 0.9 } },
+  { name: 'Minnow',     rMin: 12, rMax: 17, spd: [ 60, 105], value: 2,  wStart: 26, wEnd: 10,
+    style: { body: '#7ed6df', belly: '#e3f9fb', elong: 1.4, tail: 1.0 } },
+  { name: 'Angelfish',  rMin: 17, rMax: 24, spd: [ 45,  80], value: 4,  wStart: 20, wEnd: 12,
+    style: { body: '#a29bfe', belly: '#e0defd', elong: 0.95, tail: 1.0, dorsal: 1.5, stripes: 3, stripeColor: '#4834d4' } },
+  { name: 'Pufferfish', rMin: 22, rMax: 31, spd: [ 28,  55], value: 6,  wStart: 10, wEnd: 14,
+    style: { body: '#badc58', belly: '#f2f7cf', elong: 0.85, tail: 0.7, spikes: true } },
+  { name: 'Barracuda',  rMin: 30, rMax: 42, spd: [ 90, 145], value: 10, wStart:  8, wEnd: 20,
+    style: { body: '#95a5a6', belly: '#e3e8e9', elong: 1.85, tail: 0.8, teeth: true } },
+  { name: 'Grouper',    rMin: 42, rMax: 56, spd: [ 35,  60], value: 14, wStart:  6, wEnd: 17,
+    style: { body: '#9c6b4b', belly: '#dbb896', elong: 1.15, tail: 1.05, dorsal: 1.1, stripes: 4, stripeColor: '#6d4530' } },
+  { name: 'Shark',      rMin: 55, rMax: 75, spd: [ 60, 100], value: 20, wStart:  4, wEnd: 18,
+    style: { body: '#636e72', belly: '#b2bec3', elong: 1.5, tail: 1.1, dorsal: 1.9, teeth: true } },
+];
+
+// ============================================================ state
+let state = 'menu'; // menu | playing | paused | over
+let player, fishes, bubbles, floaters;
+let score, elapsed, spawnTimer, lastTime;
+
+function newGame() {
+  player = {
+    x: W / 2, y: H / 2, dir: 1, phase: 0,
+    level: 0, food: 0,
+    r: LEVELS[0].r, targetR: LEVELS[0].r,
+    inv: 2.0, // spawn/evolve invulnerability seconds
+  };
+  fishes = [];
+  floaters = [];
+  bubbles = Array.from({ length: 26 }, () => ({
+    x: rand(0, W), y: rand(0, H), r: rand(2, 7), spd: rand(18, 50),
+  }));
+  score = 0; elapsed = 0; spawnTimer = 0;
+  mouse.x = W / 2; mouse.y = H / 2;
+  // Pre-populate the tank so the ocean feels alive from second one,
+  // scattered across the screen but never right on top of the player.
+  for (let i = 0; i < 14; i++) {
+    spawnFish();
+    const f = fishes[fishes.length - 1];
+    do {
+      f.x = rand(60, W - 60);
+      f.y = rand(f.r + 30, H - f.r - 30);
+    } while (Math.hypot(f.x - player.x, f.y - player.y) < 260);
+  }
+  setState('playing');
+}
+
+function setState(s) {
+  state = s;
+  $('menu').classList.toggle('hidden', s !== 'menu');
+  $('pause').classList.toggle('hidden', s !== 'paused');
+  $('gameover').classList.toggle('hidden', s !== 'over');
+  $('hud').classList.toggle('hidden', s === 'menu');
+  canvas.style.cursor = (s === 'playing') ? 'none' : 'default';
+  Music.play('theme');
+}
+
+// ============================================================ input
+const mouse = { x: W / 2, y: H / 2 };
+const keys = {};
+window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+window.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  mouse.x = t.clientX; mouse.y = t.clientY;
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return; // typing a name, not playing
+  keys[e.key.toLowerCase()] = true;
+  if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (state === 'playing' || state === 'paused')) {
+    togglePause();
+  }
+  if (e.key === 'm' || e.key === 'M') toggleMute();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function togglePause() {
+  if (state === 'playing') setState('paused');
+  else if (state === 'paused') { lastTime = performance.now(); setState('playing'); }
+}
+
+$('btn-start').onclick = newGame;
+$('btn-again').onclick = newGame;
+$('btn-restart').onclick = newGame;
+$('btn-quit').onclick = newGame;
+$('btn-pause').onclick = togglePause;
+$('btn-resume').onclick = togglePause;
+$('btn-mute').onclick = toggleMute;
+$('btn-menu').onclick = () => {
+  renderLeaderboard($('lb-menu'));
+  setState('menu');
+  fetchLB().then(() => renderLeaderboard($('lb-menu')));
+};
+
+// ============================================================ leaderboard (global top 10 via /api/scores)
+const LB_API = '/api/scores';
+const NAME_KEY = 'fishgame_player_name';
+let lbCache = null;   // null = not loaded yet, [] = loaded & empty
+let lastEntryTs = null;
+let lbError = false;
+
+async function fetchLB() {
+  try {
+    const res = await fetch(LB_API);
+    if (!res.ok) throw new Error(res.status);
+    lbCache = (await res.json()).scores || [];
+    lbError = false;
+  } catch {
+    lbError = true;
+    if (!lbCache) lbCache = [];
+  }
+  return lbCache;
+}
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function renderLeaderboard(el) {
+  const list = lbCache || [];
+  if (lbError && !list.length) { el.innerHTML = '<div class="lb-empty">Leaderboard unavailable right now.</div>'; return; }
+  if (!list.length) { el.innerHTML = '<div class="lb-empty">No scores yet — be the first!</div>'; return; }
+  let html = '<table class="lb"><tr><th>#</th><th>Name</th><th>Score</th><th>When</th></tr>';
+  list.forEach((e, i) => {
+    const cls = e.ts === lastEntryTs ? ' class="latest"' : '';
+    html += `<tr${cls}><td>${i + 1}</td><td>${escapeHTML(e.name)}</td><td>${e.score}</td><td>${new Date(e.ts).toLocaleDateString()}</td></tr>`;
+  });
+  el.innerHTML = html + '</table>';
+}
+// A score qualifies if the board isn't full or it beats the current 10th place.
+function qualifies(sc) {
+  if (sc <= 0 || lbError && !(lbCache && lbCache.length)) return false;
+  const list = lbCache || [];
+  return list.length < 10 || sc > list[list.length - 1].score;
+}
+async function submitScore(name, sc) {
+  const res = await fetch(LB_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, score: sc }),
+  });
+  if (!res.ok) throw new Error(res.status);
+  const data = await res.json();
+  lbCache = data.scores || lbCache;
+  if (data.saved) lastEntryTs = data.ts;
+  return data;
+}
+$('btn-save-score').onclick = async () => {
+  const name = $('player-name').value.trim() || 'Anonymous';
+  try { localStorage.setItem(NAME_KEY, name); } catch {}
+  $('btn-save-score').disabled = true;
+  $('save-status').textContent = 'Saving…';
+  try {
+    const data = await submitScore(name, score);
+    $('name-entry').classList.add('hidden');
+    $('save-status').textContent = data.saved ? '✅ Saved to the global leaderboard!' : 'Someone beat you to it — score no longer in the top 10.';
+    renderLeaderboard($('lb-over'));
+  } catch {
+    $('save-status').textContent = '⚠️ Could not save, please try again.';
+  }
+  $('btn-save-score').disabled = false;
+};
+$('player-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('btn-save-score').click();
+});
+
+// ============================================================ sound (tiny WebAudio blips)
+let audioCtx = null;
+function ensureAudio() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type = 'square', vol = 0.05) {
+  if (Music.muted) return;
+  try {
+    ensureAudio();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch {}
+}
+// pitch-sweep helper for bigger sfx moments
+function slide(f0, f1, dur, type = 'square', vol = 0.1) {
+  if (Music.muted) return;
+  try {
+    ensureAudio();
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  } catch {}
+}
+// SFX live an octave+ above the music so they read as events, not skipped beats.
+const sfxEat = () => { beep(988, 0.07, 'square', 0.1); setTimeout(() => beep(1319, 0.26, 'square', 0.1), 75); }; // coin pop
+const sfxEvolve = () => { [523, 659, 784].forEach((f, i) => setTimeout(() => beep(f, 0.1, 'square', 0.1), i * 95)); setTimeout(() => beep(1047, 0.32, 'square', 0.11), 285); };
+const sfxDeath = () => { slide(700, 55, 0.75, 'sawtooth', 0.13); slide(350, 45, 0.75, 'square', 0.08); }; // dive-bomb
+
+// ============================================================ music (chiptune sequencer)
+// One bouncy looping theme shared by menu, pause, and gameplay — the sound
+// effects sit an octave above it so they never read as the song glitching.
+const NOTE = m => 440 * Math.pow(2, (m - 69) / 12);
+const Music = {
+  desired: null, playing: null, step: 0, nextT: 0, timer: null, muted: false, unlocked: false,
+  songs: {
+    theme: {
+      spb: 60 / 148 / 2,
+      lead: [72,0,72,74, 76,74,72,76, 79,0,76,0, 74,72,74,0, 72,0,72,74, 76,74,72,69, 67,69,71,74, 72,0,0,0],
+      bass: [48,0,43,0, 45,0,43,0, 48,0,43,0, 50,0,43,0, 48,0,43,0, 45,0,41,0, 43,0,47,0, 48,0,43,0],
+    },
+  },
+  play(name) {
+    this.desired = name;
+    if (!this.unlocked || this.playing === name) return;
+    try {
+      ensureAudio();
+      this.playing = name; this.step = 0;
+      this.nextT = audioCtx.currentTime + 0.08;
+      if (!this.timer) this.tick();
+    } catch {}
+  },
+  tick() {
+    this.timer = setTimeout(() => this.tick(), 70);
+    if (!this.playing || this.muted || !audioCtx) return;
+    const s = this.songs[this.playing];
+    while (this.nextT < audioCtx.currentTime + 0.22) {
+      const i = this.step % s.lead.length;
+      if (s.lead[i]) this.note(NOTE(s.lead[i]), this.nextT, s.spb * 0.9, 'square', 0.022);
+      if (s.bass[i]) this.note(NOTE(s.bass[i]), this.nextT, s.spb * 1.7, 'triangle', 0.048);
+      this.step++; this.nextT += s.spb;
+    }
+  },
+  note(freq, t, dur, type, vol) {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+};
+
+// Browsers block audio until the first user gesture — unlock and start the music then.
+function unlockAudio() {
+  Music.unlocked = true;
+  try { ensureAudio(); } catch { return; }
+  const d = Music.desired;
+  Music.desired = null; Music.playing = null;
+  if (d) Music.play(d);
+}
+window.addEventListener('pointerdown', unlockAudio, { once: true });
+window.addEventListener('keydown', unlockAudio, { once: true });
+window.addEventListener('click', unlockAudio, { once: true });
+
+function toggleMute() {
+  Music.muted = !Music.muted;
+  $('btn-mute').textContent = Music.muted ? '🔇' : '🔊';
+}
+
+// ============================================================ difficulty & spawning
+// D ramps 0 → 1 over 2 minutes: faster spawns, faster fish, bigger species mix.
+const difficulty = () => clamp(elapsed / 120, 0, 1);
+
+function spawnFish() {
+  const D = difficulty();
+  const cap = sizeCap();
+
+  // Guaranteed-threat spawns (sized relative to the player) ramp from 18% → 40%;
+  // guaranteed-edible spawns shrink from 40% → 22% as difficulty rises.
+  const threats = SPECIES.filter(s => Math.min(s.rMax, cap) >= player.r * 1.18);
+  const edible = SPECIES.filter(s => Math.min(s.rMin, cap) < player.r * 0.85);
+  const roll = Math.random();
+  const threatChance = lerp(0.18, 0.40, D);
+  let pool = SPECIES, forced = null;
+  if (roll < threatChance && threats.length) { pool = threats; forced = 'threat'; }
+  else if (roll < threatChance + lerp(0.40, 0.22, D) && edible.length) { pool = edible; forced = 'edible'; }
+
+  // weighted pick, weights shifting with difficulty
+  const weights = pool.map(s => lerp(s.wStart, s.wEnd, D));
+  let total = weights.reduce((a, b) => a + b, 0), pick = Math.random() * total;
+  let sp = pool[0];
+  for (let i = 0; i < pool.length; i++) { pick -= weights[i]; if (pick <= 0) { sp = pool[i]; break; } }
+
+  let r = rand(sp.rMin, sp.rMax);
+  if (forced === 'edible' && r >= player.r * 0.85) r = rand(sp.rMin, Math.max(sp.rMin + 1, player.r * 0.82));
+  if (forced === 'threat') r = rand(Math.max(sp.rMin, player.r * 1.2), Math.max(sp.rMax, player.r * 1.28));
+  r = Math.min(r, cap); // never bigger than 11% of screen
+
+  const fromLeft = Math.random() < 0.5;
+  const speed = rand(sp.spd[0], sp.spd[1]) * (1 + 0.5 * D);
+  const margin = r * 2.2;
+  const vx = fromLeft ? speed : -speed;
+  fishes.push({
+    species: sp, r,
+    x: fromLeft ? -margin : W + margin,
+    y: rand(r + 30, H - r - 30),
+    vx, speed,          // vx = cruise velocity, speed = base speed magnitude
+    cvx: vx, cvy: 0,    // current velocity (steered while chasing)
+    chasing: false,
+    wobSeed: rand(0, Math.PI * 2),
+    wobAmp: rand(10, 30),
+    phase: rand(0, Math.PI * 2),
+    aggro: rand(0.5, 1.2), // hunting drive: turn rate + chase speed when it outsizes the player
+  });
+}
+
+// ============================================================ update
+function update(dt) {
+  elapsed += dt;
+  const D = difficulty();
+  const p = player;
+
+  // --- spawning
+  spawnTimer -= dt;
+  const maxFish = 18 + Math.floor(10 * D);
+  if (spawnTimer <= 0 && fishes.length < maxFish) {
+    spawnFish();
+    spawnTimer = lerp(0.9, 0.45, D) * rand(0.7, 1.3);
+  }
+
+  // --- player movement: mouse target, WASD/arrows override
+  let tx = mouse.x, ty = mouse.y;
+  const kx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
+  const ky = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
+  if (kx || ky) { tx = p.x + kx * 200; ty = p.y + ky * 200; }
+
+  const dx = tx - p.x, dy = ty - p.y;
+  const dist = Math.hypot(dx, dy);
+  const maxSpd = 250 + p.level * 18;
+  if (dist > 2) {
+    const spd = Math.min(dist * 5, maxSpd);
+    p.x += dx / dist * spd * dt;
+    p.y += dy / dist * spd * dt;
+    if (dx > 3) p.dir = 1; else if (dx < -3) p.dir = -1;
+  }
+  p.x = clamp(p.x, p.r, W - p.r);
+  p.y = clamp(p.y, p.r, H - p.r);
+  p.phase += dt * (5 + dist * 0.03);
+  p.r += (Math.min(p.targetR, sizeCap()) - p.r) * Math.min(1, dt * 3);
+  p.inv = Math.max(0, p.inv - dt);
+
+  // --- fish movement & collisions
+  for (let i = fishes.length - 1; i >= 0; i--) {
+    const f = fishes[i];
+    const pdx = p.x - f.x, pdy = p.y - f.y;
+    const d = Math.hypot(pdx, pdy) || 1;
+
+    // Predator vision: chase while the player is inside, give up once they slip out.
+    // Hysteresis (×1.35 while already chasing) avoids flip-flopping at the boundary.
+    const isPred = f.r >= p.r * 1.15 && p.inv <= 0;
+    const vision = clamp(f.r * 4.2, 170, 420);
+    f.chasing = isPred && d < vision * (f.chasing ? 1.35 : 1);
+
+    if (f.chasing) {
+      // steer toward the player with a finite turn rate — an arc, not a missile
+      const maxSp = f.speed * (1 + 0.35 * f.aggro);
+      const accel = maxSp * 2.2 * f.aggro;
+      f.cvx += pdx / d * accel * dt;
+      f.cvy += pdy / d * accel * dt;
+      const sp = Math.hypot(f.cvx, f.cvy);
+      if (sp > maxSp) { f.cvx *= maxSp / sp; f.cvy *= maxSp / sp; }
+    } else {
+      // relax back to horizontal cruising
+      const ease = Math.min(1, dt * 1.6);
+      f.cvx += (f.vx - f.cvx) * ease;
+      f.cvy += (0 - f.cvy) * ease;
+    }
+    f.x += f.cvx * dt;
+    f.y += f.cvy * dt + Math.sin(elapsed * 1.5 + f.wobSeed) * f.wobAmp * dt;
+    f.y = clamp(f.y, f.r, H - f.r);
+    f.phase += dt * (f.chasing ? 9.5 : 6);
+    if (!f.chasing && ((f.vx > 0 && f.x > W + f.r * 3) || (f.vx < 0 && f.x < -f.r * 3))) { fishes.splice(i, 1); continue; }
+
+    if (f.r < p.r * 0.85) {
+      // edible — must be clearly smaller, same-size fish are off the menu
+      if (d < (f.r + p.r) * 0.8) { eat(f); fishes.splice(i, 1); }
+    } else if (f.r >= p.r * 1.15 && p.inv <= 0) {
+      // predator
+      if (d < (f.r + p.r) * 0.7) { die(f.species.name); return; }
+    }
+    // similar size: neutral, just swims past
+  }
+
+  // --- food chain: fish opportunistically eat clearly smaller fish of other species
+  const eaten = new Set();
+  for (let i = 0; i < fishes.length; i++) {
+    const a = fishes[i];
+    if (eaten.has(a)) continue;
+    for (let j = i + 1; j < fishes.length; j++) {
+      const b = fishes[j];
+      if (eaten.has(b) || a.species === b.species) continue;
+      const big = a.r > b.r ? a : b, small = a.r > b.r ? b : a;
+      if (small.r >= big.r * 0.85) continue; // same-size rule applies to them too
+      if (Math.hypot(a.x - b.x, a.y - b.y) < (a.r + b.r) * 0.72) {
+        eaten.add(small);
+        big.r = Math.min(big.r + small.r * 0.1, sizeCap()); // a meal makes it grow a bit
+        floaters.push({ x: small.x, y: small.y, txt: '°ₒ°', life: 0.8, size: Math.max(12, small.r * 0.8), color: 'rgba(200,235,255,.8)' });
+      }
+    }
+  }
+  if (eaten.size) fishes = fishes.filter(f => !eaten.has(f));
+
+  // --- bubbles & floaters
+  for (const b of bubbles) {
+    b.y -= b.spd * dt;
+    if (b.y < -10) { b.y = H + 10; b.x = rand(0, W); }
+  }
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const fl = floaters[i];
+    fl.y -= 35 * dt; fl.life -= dt;
+    if (fl.life <= 0) floaters.splice(i, 1);
+  }
+}
+
+function eat(f) {
+  const v = f.species.value;
+  score += v * 10;
+  player.food += v;
+  floaters.push({ x: f.x, y: f.y, txt: `+${v * 10}`, life: 0.9, size: 16, color: '#ffd351' });
+  sfxEat();
+
+  // evolve?
+  const lv = LEVELS[player.level];
+  if (player.food >= lv.need && player.level < LEVELS.length - 1) {
+    player.food -= lv.need;
+    player.level++;
+    player.targetR = LEVELS[player.level].r;
+    player.inv = 1.5;
+    floaters.push({
+      x: player.x, y: player.y - player.r - 24,
+      txt: `✨ Evolved into ${LEVELS[player.level].name}! ✨`,
+      life: 2.2, size: 24, color: '#7bed9f',
+    });
+    sfxEvolve();
+  }
+}
+
+function die(predatorName) {
+  sfxDeath();
+  $('final-score').textContent = score;
+  $('death-reason').textContent = `Swallowed whole by a ${predatorName} after ${Math.floor(elapsed)}s`;
+  $('save-status').textContent = '';
+  $('name-entry').classList.add('hidden');
+  setState('over');
+  // Re-check against the live board, then offer name entry if the score makes it.
+  fetchLB().then(() => {
+    if (qualifies(score)) {
+      try { $('player-name').value = localStorage.getItem(NAME_KEY) || ''; } catch {}
+      $('name-entry').classList.remove('hidden');
+      $('player-name').focus();
+    }
+    renderLeaderboard($('lb-over'));
+  });
+}
+
+// ============================================================ fish drawing
+// Parametric fish: one function, many looks. dir=1 faces right.
+function drawFish(x, y, r, dir, phase, s, alpha = 1) {
+  const elong = s.elong || 1.2;
+  const L = r * elong;          // half body length
+  const Hh = r * 0.62;          // half body height
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir, 1);
+  ctx.globalAlpha = alpha;
+
+  const flap = Math.sin(phase) * 0.4;
+
+  // tail
+  const tl = r * (s.tail || 1) * 0.95;
+  ctx.fillStyle = shade(s.body, -18);
+  ctx.beginPath();
+  ctx.moveTo(-L * 0.82, 0);
+  ctx.lineTo(-L * 0.82 - tl, -tl * (0.62 + flap * 0.35));
+  if (s.fancyTail) {
+    ctx.quadraticCurveTo(-L * 0.82 - tl * 0.45, 0, -L * 0.82 - tl, tl * (0.62 - flap * 0.35));
+  } else {
+    ctx.lineTo(-L * 0.82 - tl * 0.35, 0);
+    ctx.lineTo(-L * 0.82 - tl, tl * (0.62 - flap * 0.35));
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // dorsal fin
+  if (s.dorsal) {
+    ctx.fillStyle = shade(s.body, -14);
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.35, -Hh * 0.75);
+    ctx.quadraticCurveTo(-L * 0.05, -Hh * (1 + s.dorsal), L * 0.22, -Hh * 0.72);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // puffer/lionfish spikes
+  if (s.spikes) {
+    ctx.strokeStyle = shade(s.body, -30);
+    ctx.lineWidth = Math.max(1.5, r * 0.07);
+    for (let a = -2.5; a <= 2.5; a += 0.45) {
+      const sx = Math.cos(a) * L * 0.92, sy = Math.sin(a) * Hh * 0.92;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx * 1.28, sy * 1.28);
+      ctx.stroke();
+    }
+  }
+
+  // body
+  ctx.fillStyle = s.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, L, Hh, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // belly (lower half) + stripes, clipped to body
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(0, 0, L, Hh, 0, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = s.belly || '#fff';
+  ctx.beginPath();
+  ctx.ellipse(0, Hh * 0.55, L * 0.92, Hh * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (s.stripes) {
+    ctx.fillStyle = s.stripeColor || '#333';
+    const n = s.stripes;
+    for (let i = 0; i < n; i++) {
+      const sx = -L * 0.55 + (i / (n - 1 || 1)) * L * 0.95;
+      ctx.save();
+      ctx.translate(sx, 0);
+      ctx.rotate(-0.12);
+      ctx.fillRect(-r * 0.09, -Hh * 1.2, r * 0.18, Hh * 2.4);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+
+  // side fin
+  ctx.fillStyle = shade(s.body, -14);
+  ctx.beginPath();
+  ctx.moveTo(L * 0.05, Hh * 0.15);
+  ctx.quadraticCurveTo(-L * 0.25, Hh * (0.85 + flap * 0.3), -L * 0.15, Hh * 0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  // eye
+  const ex = L * 0.55, ey = -Hh * 0.28;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(ex, ey, r * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#15222e';
+  ctx.beginPath(); ctx.arc(ex + r * 0.045, ey, r * 0.085, 0, Math.PI * 2); ctx.fill();
+
+  // mouth / teeth
+  if (s.teeth) {
+    ctx.fillStyle = '#7d2436';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.98, Hh * 0.05);
+    ctx.quadraticCurveTo(L * 0.6, Hh * 0.42, L * 0.35, Hh * 0.18);
+    ctx.quadraticCurveTo(L * 0.65, Hh * 0.2, L * 0.98, Hh * 0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 3; i++) {
+      const txx = L * (0.9 - i * 0.16);
+      ctx.beginPath();
+      ctx.moveTo(txx, Hh * (0.08 + i * 0.045));
+      ctx.lineTo(txx - r * 0.06, Hh * 0.3);
+      ctx.lineTo(txx - r * 0.12, Hh * (0.1 + i * 0.045));
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+    ctx.strokeStyle = 'rgba(0,0,0,.45)';
+    ctx.lineWidth = Math.max(1, r * 0.05);
+    ctx.beginPath();
+    ctx.arc(L * 0.78, Hh * 0.18, r * 0.14, 0.2, Math.PI * 0.7);
+    ctx.stroke();
+  }
+
+  // crown for the Shark King
+  if (s.crown) {
+    ctx.fillStyle = '#ffd351';
+    ctx.strokeStyle = '#c9992a';
+    ctx.lineWidth = Math.max(1, r * 0.04);
+    const cw = r * 0.55, cy = -Hh * (1 + (s.dorsal || 1)) - r * 0.05, cx = L * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(cx - cw / 2, cy + r * 0.3);
+    ctx.lineTo(cx - cw / 2, cy);
+    ctx.lineTo(cx - cw / 4, cy + r * 0.14);
+    ctx.lineTo(cx, cy - r * 0.08);
+    ctx.lineTo(cx + cw / 4, cy + r * 0.14);
+    ctx.lineTo(cx + cw / 2, cy);
+    ctx.lineTo(cx + cw / 2, cy + r * 0.3);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// lighten/darken a hex color by amt (-100..100)
+const shadeCache = {};
+function shade(hex, amt) {
+  const key = hex + amt;
+  if (shadeCache[key]) return shadeCache[key];
+  const n = parseInt(hex.slice(1), 16);
+  const r = clamp((n >> 16) + amt * 2.55, 0, 255) | 0;
+  const g = clamp(((n >> 8) & 255) + amt * 2.55, 0, 255) | 0;
+  const b = clamp((n & 255) + amt * 2.55, 0, 255) | 0;
+  return shadeCache[key] = `rgb(${r},${g},${b})`;
+}
+
+// ============================================================ ambient scenery (decorative only)
+let decor = [];
+const sandH = () => Math.min(H * 0.12, 110);
+const sandTopAt = x => H - sandH() + Math.sin(x * 0.015 + 2) * 6;
+
+function makeDecor() {
+  decor = [];
+  for (let x = rand(20, 80); x < W; x += rand(120, 260)) {
+    decor.push({ kind: 'weed', x, h: rand(60, 150), seed: rand(0, 9), col: `hsl(${rand(95, 150)},45%,${rand(22, 32)}%)`, w: rand(4, 7) });
+  }
+  for (let x = rand(60, 200); x < W; x += rand(220, 420)) {
+    decor.push({ kind: 'coral', x, s: rand(16, 34), seed: rand(0, 9), col: ['#b95d50', '#c46a8a', '#b9774e', '#8d5fa8'][Math.floor(rand(0, 4))] });
+  }
+  for (let x = rand(40, 160); x < W; x += rand(180, 380)) {
+    decor.push(Math.random() < 0.5
+      ? { kind: 'shell', x, s: rand(7, 13), rot: rand(-0.4, 0.4), col: '#c9b791' }
+      : { kind: 'star', x, s: rand(8, 14), rot: rand(0, 6.3), col: '#cf8a3b' });
+  }
+  for (let i = 0; i < (W > 900 ? 2 : 1); i++) {
+    decor.push({ kind: 'crab', x0: rand(W * 0.15, W * 0.85), range: rand(60, 140), s: rand(9, 14), seed: rand(0, 9), spd: rand(0.25, 0.5) });
+  }
+}
+window.addEventListener('resize', makeDecor);
+makeDecor();
+
+function drawWeed(d, t) {
+  const base = sandTopAt(d.x) + 4;
+  ctx.strokeStyle = d.col;
+  ctx.lineCap = 'round';
+  for (let b = -1; b <= 1; b++) {
+    ctx.lineWidth = d.w - Math.abs(b) * 1.5;
+    ctx.beginPath();
+    let px = d.x + b * 4, py = base;
+    ctx.moveTo(px, py);
+    const segs = 4;
+    for (let i = 1; i <= segs; i++) {
+      const sway = Math.sin(t * 1.3 + d.seed + i * 0.8 + b) * 6 * (i / segs) * (1 + Math.abs(b) * 0.3);
+      const ny = base - d.h * (1 - Math.abs(b) * 0.2) * (i / segs);
+      const nx = d.x + b * 6 + sway;
+      ctx.quadraticCurveTo(px, (py + ny) / 2, nx, ny);
+      px = nx; py = ny;
+    }
+    ctx.stroke();
+  }
+}
+
+function drawCoral(d, t) {
+  const base = sandTopAt(d.x) + 3;
+  ctx.strokeStyle = d.col;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(3, d.s * 0.28);
+  for (let i = 0; i < 5; i++) {
+    const a = -Math.PI / 2 + (i - 2) * 0.38 + Math.sin(t * 0.6 + d.seed) * 0.02;
+    const len = d.s * (1 + (i % 2) * 0.45);
+    const tipX = d.x + Math.cos(a) * len, tipY = base + Math.sin(a) * len;
+    ctx.beginPath();
+    ctx.moveTo(d.x, base);
+    ctx.quadraticCurveTo(d.x + Math.cos(a - 0.25) * len * 0.5, base + Math.sin(a - 0.25) * len * 0.5, tipX, tipY);
+    ctx.stroke();
+    ctx.fillStyle = shade(d.col, 18);
+    ctx.beginPath(); ctx.arc(tipX, tipY, ctx.lineWidth * 0.55, 0, 7); ctx.fill();
+  }
+}
+
+function drawShell(d) {
+  const y = sandTopAt(d.x) + 2;
+  ctx.save(); ctx.translate(d.x, y); ctx.rotate(d.rot);
+  ctx.fillStyle = d.col;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, d.s, Math.PI, 2 * Math.PI);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(60,45,25,.35)';
+  ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.lineTo(Math.sin(i * 0.35) * d.s * 0.95, -Math.cos(i * 0.35) * d.s * 0.95);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawStar(d) {
+  const y = sandTopAt(d.x) + 1;
+  ctx.save(); ctx.translate(d.x, y); ctx.rotate(d.rot);
+  ctx.fillStyle = d.col;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = i * Math.PI / 5, r = i % 2 ? d.s * 0.45 : d.s;
+    ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawCrab(d, t) {
+  const x = d.x0 + Math.sin(t * d.spd + d.seed) * d.range;
+  const y = sandTopAt(x) - d.s * 0.3;
+  const s = d.s, wig = Math.sin(t * 6 + d.seed);
+  ctx.save(); ctx.translate(x, y);
+  ctx.strokeStyle = '#8f3b30';
+  ctx.lineWidth = Math.max(1.5, s * 0.16);
+  ctx.lineCap = 'round';
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < 3; i++) {
+      const lx = side * s * (0.7 + i * 0.25);
+      const ly = s * 0.5 + Math.sin(t * 6 + i * 1.3 + d.seed + side) * s * 0.14;
+      ctx.beginPath(); ctx.moveTo(side * s * 0.4, s * 0.1); ctx.lineTo(lx, ly); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = '#a5453a';
+  ctx.beginPath(); ctx.arc(-s * 0.95, -s * 0.25 + wig * s * 0.08, s * 0.28, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(s * 0.95, -s * 0.25 - wig * s * 0.08, s * 0.28, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0, s, s * 0.68, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.55, s * 0.16, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.55, s * 0.16, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.55, s * 0.07, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.55, s * 0.07, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+function drawFloor(t) {
+  const top = H - sandH();
+  const g = ctx.createLinearGradient(0, top, 0, H);
+  g.addColorStop(0, '#6e6247');
+  g.addColorStop(1, '#3c3526');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, sandTopAt(0));
+  for (let x = 0; x <= W + 24; x += 24) ctx.lineTo(x, sandTopAt(x));
+  ctx.lineTo(W, H);
+  ctx.closePath(); ctx.fill();
+
+  for (const d of decor) {
+    if (d.kind === 'weed') drawWeed(d, t);
+    else if (d.kind === 'coral') drawCoral(d, t);
+    else if (d.kind === 'shell') drawShell(d);
+    else if (d.kind === 'star') drawStar(d);
+    else drawCrab(d, t);
+  }
+}
+
+// ============================================================ render
+function render() {
+  // water
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#0a5d8f');
+  grad.addColorStop(0.5, '#07456e');
+  grad.addColorStop(1, '#032a47');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // light rays
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.fillStyle = '#bfe8ff';
+  for (let i = 0; i < 4; i++) {
+    const rx = (i + 0.5) * W / 4 + Math.sin(performance.now() / 4000 + i) * 40;
+    ctx.beginPath();
+    ctx.moveTo(rx - 30, 0);
+    ctx.lineTo(rx + 30, 0);
+    ctx.lineTo(rx + 130, H);
+    ctx.lineTo(rx - 130, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // seafloor scenery: sand, swaying weeds, corals, shells, wandering crabs
+  drawFloor(performance.now() / 1000);
+
+  if (state === 'menu') return;
+
+  // bubbles
+  ctx.fillStyle = 'rgba(200,235,255,.25)';
+  for (const b of bubbles) {
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // enemies (chasing predators flap faster — that's the warning tell)
+  for (const f of fishes) {
+    drawFish(f.x, f.y, f.r, f.cvx > 0 ? 1 : -1, f.phase, f.species.style);
+  }
+
+  // player (blinks while invulnerable)
+  const blink = player.inv > 0 && Math.floor(performance.now() / 120) % 2 === 0;
+  drawFish(player.x, player.y, player.r, player.dir, player.phase, PLAYER_STYLES[player.level], blink ? 0.35 : 1);
+
+  // floaters
+  for (const fl of floaters) {
+    ctx.save();
+    ctx.globalAlpha = clamp(fl.life, 0, 1);
+    ctx.fillStyle = fl.color;
+    ctx.font = `bold ${fl.size}px 'Trebuchet MS', sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
+    ctx.fillText(fl.txt, fl.x, fl.y);
+    ctx.restore();
+  }
+
+  // HUD
+  $('score').textContent = score;
+  const lv = LEVELS[player.level];
+  $('level-name').textContent = `Lv ${player.level + 1} · ${lv.name}`;
+  $('xp-bar').style.width = (lv.need === Infinity ? 100 : clamp(player.food / lv.need * 100, 0, 100)) + '%';
+}
+
+// ============================================================ main loop
+lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+  if (state === 'playing') update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+fetchLB().then(() => renderLeaderboard($('lb-menu')));
+Music.play('theme'); // queued until the first click/keypress unlocks audio
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
