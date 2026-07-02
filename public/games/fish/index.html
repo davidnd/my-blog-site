@@ -158,12 +158,14 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // ============================================================ player levels
 // `need` = food points required to evolve to the NEXT level.
 // Food points = the `value` of each fish eaten (bigger prey feeds more).
+// Growth gets deliberately harder each stage: `need` climbs faster than the
+// value of the prey you can reach at that size, so late evolutions are a grind.
 const LEVELS = [
-  { name: 'Fry',        r: 14, need: 12  },
-  { name: 'Goldfish',   r: 20, need: 35  },
-  { name: 'Angelfish',  r: 27, need: 80  },
-  { name: 'Lionfish',   r: 36, need: 160 },
-  { name: 'Barracuda',  r: 47, need: 280 },
+  { name: 'Fry',        r: 14, need: 18   },
+  { name: 'Goldfish',   r: 20, need: 55   },
+  { name: 'Angelfish',  r: 27, need: 130  },
+  { name: 'Lionfish',   r: 36, need: 290  },
+  { name: 'Barracuda',  r: 47, need: 560  },
   { name: 'Shark King', r: 60, need: Infinity },
 ];
 
@@ -180,26 +182,39 @@ const PLAYER_STYLES = [
 // ============================================================ enemy species
 // All species can spawn from the very start — the ocean is dangerous everywhere.
 // Weights shift from wStart to wEnd as difficulty ramps, favoring bigger fish.
+// 12 species spanning tiny darters to lumbering giants. `spd` ranges are
+// deliberately spread apart (tiny fish zip, puffers/groupers plod, barracuda
+// and tuna are fast for their size) so the tank never reads as one uniform drift.
 const SPECIES = [
-  { name: 'Guppy',      rMin:  9, rMax: 13, spd: [ 40,  75], value: 1,  wStart: 30, wEnd:  8,
+  { name: 'Krill',      rMin:  7, rMax: 10, spd: [ 95, 175], value: 1,  wStart: 24, wEnd:  5,
+    style: { body: '#ffb8c6', belly: '#ffe3ea', elong: 1.5, tail: 0.9 } },
+  { name: 'Guppy',      rMin:  9, rMax: 13, spd: [ 40,  80], value: 1,  wStart: 28, wEnd:  8,
     style: { body: '#ff9f43', belly: '#ffd9a0', elong: 1.15, tail: 0.9 } },
-  { name: 'Minnow',     rMin: 12, rMax: 17, spd: [ 60, 105], value: 2,  wStart: 26, wEnd: 10,
+  { name: 'Neon Tetra', rMin: 11, rMax: 15, spd: [110, 195], value: 2,  wStart: 22, wEnd:  9,
+    style: { body: '#48dbfb', belly: '#eaffff', elong: 1.45, tail: 1.0, stripes: 1, stripeColor: '#ff6b81' } },
+  { name: 'Minnow',     rMin: 13, rMax: 18, spd: [ 55,  95], value: 2,  wStart: 24, wEnd: 10,
     style: { body: '#7ed6df', belly: '#e3f9fb', elong: 1.4, tail: 1.0 } },
-  { name: 'Angelfish',  rMin: 17, rMax: 24, spd: [ 45,  80], value: 4,  wStart: 20, wEnd: 12,
+  { name: 'Clownfish',  rMin: 16, rMax: 21, spd: [ 60, 110], value: 3,  wStart: 18, wEnd: 11,
+    style: { body: '#ff7f2a', belly: '#ffe0c2', elong: 1.05, tail: 1.0, stripes: 3, stripeColor: '#ffffff' } },
+  { name: 'Angelfish',  rMin: 18, rMax: 25, spd: [ 42,  78], value: 4,  wStart: 18, wEnd: 12,
     style: { body: '#a29bfe', belly: '#e0defd', elong: 0.95, tail: 1.0, dorsal: 1.5, stripes: 3, stripeColor: '#4834d4' } },
-  { name: 'Pufferfish', rMin: 22, rMax: 31, spd: [ 28,  55], value: 6,  wStart: 10, wEnd: 14,
+  { name: 'Mackerel',   rMin: 24, rMax: 30, spd: [ 95, 155], value: 6,  wStart: 12, wEnd: 13,
+    style: { body: '#5f8fa6', belly: '#dfeef2', elong: 1.7, tail: 1.05, stripes: 5, stripeColor: '#2c4a57' } },
+  { name: 'Pufferfish', rMin: 24, rMax: 32, spd: [ 24,  50], value: 7,  wStart: 10, wEnd: 13,
     style: { body: '#badc58', belly: '#f2f7cf', elong: 0.85, tail: 0.7, spikes: true } },
-  { name: 'Barracuda',  rMin: 30, rMax: 42, spd: [ 90, 145], value: 10, wStart:  8, wEnd: 20,
-    style: { body: '#95a5a6', belly: '#e3e8e9', elong: 1.85, tail: 0.8, teeth: true } },
-  { name: 'Grouper',    rMin: 42, rMax: 56, spd: [ 35,  60], value: 14, wStart:  6, wEnd: 17,
+  { name: 'Barracuda',  rMin: 32, rMax: 44, spd: [110, 175], value: 11, wStart:  8, wEnd: 18,
+    style: { body: '#95a5a6', belly: '#e3e8e9', elong: 1.9, tail: 0.8, teeth: true } },
+  { name: 'Grouper',    rMin: 44, rMax: 58, spd: [ 32,  60], value: 15, wStart:  6, wEnd: 16,
     style: { body: '#9c6b4b', belly: '#dbb896', elong: 1.15, tail: 1.05, dorsal: 1.1, stripes: 4, stripeColor: '#6d4530' } },
-  { name: 'Shark',      rMin: 55, rMax: 75, spd: [ 60, 100], value: 20, wStart:  4, wEnd: 18,
+  { name: 'Tuna',       rMin: 50, rMax: 64, spd: [ 90, 150], value: 20, wStart:  5, wEnd: 16,
+    style: { body: '#4b6b8a', belly: '#cfe0ec', elong: 1.65, tail: 1.2, dorsal: 0.9 } },
+  { name: 'Shark',      rMin: 58, rMax: 78, spd: [ 62, 105], value: 26, wStart:  4, wEnd: 17,
     style: { body: '#636e72', belly: '#b2bec3', elong: 1.5, tail: 1.1, dorsal: 1.9, teeth: true } },
 ];
 
 // ============================================================ state
 let state = 'menu'; // menu | playing | paused | over
-let player, fishes, bubbles, floaters;
+let player, fishes, bubbles, floaters, particles;
 let score, elapsed, spawnTimer, lastTime;
 
 function newGame() {
@@ -208,9 +223,11 @@ function newGame() {
     level: 0, food: 0,
     r: LEVELS[0].r, targetR: LEVELS[0].r,
     inv: 2.0, // spawn/evolve invulnerability seconds
+    eatPop: 0, // brief squash-and-stretch spike on each meal
   };
   fishes = [];
   floaters = [];
+  particles = [];
   bubbles = Array.from({ length: 26 }, () => ({
     x: rand(0, W), y: rand(0, H), r: rand(2, 7), spd: rand(18, 50),
   }));
@@ -518,7 +535,10 @@ function spawnFish() {
   r = Math.min(r, cap); // never bigger than 11% of screen
 
   const fromLeft = Math.random() < 0.5;
-  const speed = rand(sp.spd[0], sp.spd[1]) * (1 + 0.5 * D);
+  // Per-fish multiplier on top of the species range, so even two guppies rarely
+  // cruise at the same pace. Combined with the spread-out species ranges this is
+  // what makes the tank feel busy rather than a synchronized school.
+  const speed = rand(sp.spd[0], sp.spd[1]) * rand(0.8, 1.3) * (1 + 0.5 * D);
   const margin = r * 2.2;
   const vx = fromLeft ? speed : -speed;
   fishes.push({
@@ -529,7 +549,8 @@ function spawnFish() {
     cvx: vx, cvy: 0,    // current velocity (steered while chasing)
     chasing: false,
     wobSeed: rand(0, Math.PI * 2),
-    wobAmp: rand(10, 30),
+    wobAmp: rand(8, 34),
+    wobFreq: rand(0.9, 2.2), // bob rate, randomized so vertical drift varies too
     phase: rand(0, Math.PI * 2),
     aggro: rand(0.5, 1.2), // hunting drive: turn rate + chase speed when it outsizes the player
   });
@@ -569,6 +590,7 @@ function update(dt) {
   p.phase += dt * (5 + dist * 0.03);
   p.r += (Math.min(p.targetR, sizeCap()) - p.r) * Math.min(1, dt * 3);
   p.inv = Math.max(0, p.inv - dt);
+  p.eatPop = Math.max(0, p.eatPop - dt * 4.5);
 
   // --- fish movement & collisions
   for (let i = fishes.length - 1; i >= 0; i--) {
@@ -597,7 +619,7 @@ function update(dt) {
       f.cvy += (0 - f.cvy) * ease;
     }
     f.x += f.cvx * dt;
-    f.y += f.cvy * dt + Math.sin(elapsed * 1.5 + f.wobSeed) * f.wobAmp * dt;
+    f.y += f.cvy * dt + Math.sin(elapsed * f.wobFreq + f.wobSeed) * f.wobAmp * dt;
     f.y = clamp(f.y, f.r, H - f.r);
     f.phase += dt * (f.chasing ? 9.5 : 6);
     if (!f.chasing && ((f.vx > 0 && f.x > W + f.r * 3) || (f.vx < 0 && f.x < -f.r * 3))) { fishes.splice(i, 1); continue; }
@@ -641,6 +663,35 @@ function update(dt) {
     fl.y -= 35 * dt; fl.life -= dt;
     if (fl.life <= 0) floaters.splice(i, 1);
   }
+
+  // eat/evolve particles: 'dot' bits scatter and drift up; 'ring' shockwaves expand.
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const pt = particles[i];
+    pt.life -= dt;
+    if (pt.life <= 0) { particles.splice(i, 1); continue; }
+    if (pt.shape === 'dot') {
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+      pt.vy -= 26 * dt;                        // gentle buoyancy
+      const drag = Math.max(0, 1 - 2.4 * dt);
+      pt.vx *= drag; pt.vy *= drag;
+    }
+  }
+}
+
+// ---- particle helpers (eat / evolve effects) ----
+// A radial spray of little bits. `color` is usually the prey's body color.
+function spawnBurst(x, y, color, n, opts = {}) {
+  const [s0, s1] = opts.spd || [40, 160];
+  const [z0, z1] = opts.size || [2, 5];
+  const [l0, l1] = opts.life || [0.35, 0.7];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(s0, s1), life = rand(l0, l1);
+    particles.push({ shape: 'dot', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, size: rand(z0, z1), life, max: life, color });
+  }
+}
+// An expanding ring that fades: the "shockwave" of a gulp or an evolution.
+function spawnRing(x, y, color, r0, r1, life) {
+  particles.push({ shape: 'ring', x, y, r0, r1, life, max: life, color });
 }
 
 function eat(f) {
@@ -648,20 +699,27 @@ function eat(f) {
   score += v * 10;
   player.food += v;
   floaters.push({ x: f.x, y: f.y, txt: `+${v * 10}`, life: 0.9, size: 16, color: '#ffd351' });
+  // chomp: bits of the prey spray out, a quick shockwave ring, and the player
+  // does a brief squash-and-stretch pop (see eatPop use in render).
+  spawnBurst(f.x, f.y, f.species.style.body, 11, { spd: [50, 190], size: [2, 5], life: [0.3, 0.65] });
+  spawnBurst(f.x, f.y, '#eaf6ff', 4, { spd: [25, 80], size: [1.5, 3], life: [0.45, 0.85] });
+  spawnRing(f.x, f.y, 'rgba(255,236,180,0.9)', Math.max(6, f.r * 0.5), f.r * 1.9, 0.32);
+  player.eatPop = Math.max(player.eatPop, 1);
   sfxEat();
 
-  // evolve?
+  // evolve? No banner text — the fish simply grows (targetR eases up over ~0.5s)
+  // with a burst of shockwaves and sparkles to sell the moment.
   const lv = LEVELS[player.level];
   if (player.food >= lv.need && player.level < LEVELS.length - 1) {
     player.food -= lv.need;
     player.level++;
     player.targetR = LEVELS[player.level].r;
     player.inv = 1.5;
-    floaters.push({
-      x: player.x, y: player.y - player.r - 24,
-      txt: `✨ Evolved into ${LEVELS[player.level].name}! ✨`,
-      life: 2.2, size: 24, color: '#7bed9f',
-    });
+    player.eatPop = 1.7;
+    spawnRing(player.x, player.y, 'rgba(184,255,205,0.95)', player.r * 0.6, player.r * 3.4, 0.6);
+    spawnRing(player.x, player.y, 'rgba(255,255,255,0.85)', player.r * 0.4, player.r * 2.5, 0.42);
+    spawnBurst(player.x, player.y, '#b6ffcf', 20, { spd: [80, 250], size: [2, 5], life: [0.4, 0.95] });
+    spawnBurst(player.x, player.y, '#ffffff', 8, { spd: [40, 130], size: [1.5, 3.5], life: [0.5, 1.0] });
     sfxEvolve();
   }
 }
@@ -1026,9 +1084,40 @@ function render() {
     drawFish(f.x, f.y, f.r, f.cvx > 0 ? 1 : -1, f.phase, f.species.style);
   }
 
-  // player (blinks while invulnerable)
+  // player (blinks while invulnerable; squash-and-stretch pop on each meal)
   const blink = player.inv > 0 && Math.floor(performance.now() / 120) % 2 === 0;
-  drawFish(player.x, player.y, player.r, player.dir, player.phase, PLAYER_STYLES[player.level], blink ? 0.35 : 1);
+  const pop = player.eatPop;
+  if (pop > 0.01) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.scale(1 + 0.16 * pop, 1 - 0.06 * pop); // stretch wide, squash tall
+    ctx.translate(-player.x, -player.y);
+    drawFish(player.x, player.y, player.r, player.dir, player.phase, PLAYER_STYLES[player.level], blink ? 0.35 : 1);
+    ctx.restore();
+  } else {
+    drawFish(player.x, player.y, player.r, player.dir, player.phase, PLAYER_STYLES[player.level], blink ? 0.35 : 1);
+  }
+
+  // eat / evolve particles
+  for (const pt of particles) {
+    const t = clamp(pt.life / pt.max, 0, 1);
+    ctx.save();
+    if (pt.shape === 'ring') {
+      ctx.globalAlpha = t * 0.7;
+      ctx.strokeStyle = pt.color;
+      ctx.lineWidth = 1 + 3 * t;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, lerp(pt.r0, pt.r1, 1 - t), 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = t;
+      ctx.fillStyle = pt.color;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.size * (0.35 + 0.65 * t), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
   // floaters
   for (const fl of floaters) {
