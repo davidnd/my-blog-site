@@ -13,6 +13,7 @@ interface Entry {
   name: string;
   score: number;
   ts: number;
+  wave?: number; // highest wave reached, for games that track it
 }
 
 // key = KV key (fish predates multi-game support, so it keeps the bare "top10").
@@ -20,6 +21,7 @@ interface Entry {
 const GAMES: Record<string, { key: string; maxScore: number }> = {
   fish: { key: "top10", maxScore: 1_000_000 },
   tetris: { key: "top10:tetris", maxScore: 5_000_000 },
+  chicken: { key: "top10:chicken", maxScore: 5_000_000 },
 };
 
 const MAX_ENTRIES = 10;
@@ -50,7 +52,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!env.SCORES) return json({ error: "SCORES KV binding is not configured" }, 500);
 
-  let body: { name?: unknown; score?: unknown; game?: unknown };
+  let body: { name?: unknown; score?: unknown; game?: unknown; wave?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -80,6 +82,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   const entry: Entry = { name, score, ts: Date.now() };
+  const wave = body.wave;
+  if (typeof wave === "number" && Number.isInteger(wave) && wave > 0 && wave <= 999) {
+    entry.wave = wave;
+  }
   list.push(entry);
   list.sort((a, b) => b.score - a.score || a.ts - b.ts);
   const top = list.slice(0, MAX_ENTRIES);

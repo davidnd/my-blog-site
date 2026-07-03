@@ -1,0 +1,96 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Chicken Invaders 2 thumbnail">
+  <defs>
+    <radialGradient id="space" cx="35%" cy="20%" r="110%">
+      <stop offset="0%" stop-color="#101a3e"/>
+      <stop offset="60%" stop-color="#060a18"/>
+      <stop offset="100%" stop-color="#04060f"/>
+    </radialGradient>
+    <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f2f5fb"/>
+      <stop offset="60%" stop-color="#c3cddd"/>
+      <stop offset="100%" stop-color="#8a97ad"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#aeeaff"/>
+      <stop offset="100%" stop-color="#2a8fd6"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff6e8"/>
+      <stop offset="55%" stop-color="#ff8a3d"/>
+      <stop offset="100%" stop-color="#ff5330" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffdc78"/>
+      <stop offset="100%" stop-color="#ff3c14" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#space)"/>
+
+  <!-- stars -->
+  <g fill="#cfd8ff">
+    <circle cx="34" cy="52" r="1.6"/><circle cx="88" cy="24" r="1.1"/>
+    <circle cx="150" cy="66" r="1.4"/><circle cx="228" cy="30" r="1.8"/>
+    <circle cx="318" cy="58" r="1.2"/><circle cx="372" cy="104" r="1.6"/>
+    <circle cx="30" cy="160" r="1.2"/><circle cx="376" cy="210" r="1.3"/>
+    <circle cx="22" cy="286" r="1.5"/><circle cx="358" cy="316" r="1.4"/>
+    <circle cx="64" cy="360" r="1.2"/><circle cx="196" cy="386" r="1.3"/>
+    <circle cx="120" cy="120" r="1.0" opacity="0.7"/><circle cx="286" cy="132" r="1.0" opacity="0.7"/>
+  </g>
+
+  <!-- asteroid, top right -->
+  <g transform="translate(330 150) rotate(18)">
+    <polygon points="-26,-8 -14,-24 8,-26 24,-12 26,8 12,24 -10,25 -25,10"
+      fill="#6b6357" stroke="#332e27" stroke-width="3"/>
+    <ellipse cx="-6" cy="-4" rx="6" ry="4" fill="#4a443b"/>
+    <ellipse cx="10" cy="8" rx="4" ry="3" fill="#4a443b"/>
+  </g>
+
+  <!-- the invading chicken -->
+  <g transform="translate(200 128)">
+    <!-- wings -->
+    <ellipse cx="-52" cy="4" rx="26" ry="13" transform="rotate(24 -52 4)" fill="#e9e4d8" stroke="#4a4234" stroke-width="3"/>
+    <ellipse cx="52" cy="4" rx="26" ry="13" transform="rotate(-24 52 4)" fill="#e9e4d8" stroke="#4a4234" stroke-width="3"/>
+    <!-- feet -->
+    <g stroke="#e8871e" stroke-width="5" stroke-linecap="round" fill="none">
+      <path d="M -14 42 L -17 58 M -17 58 L -25 66 M -17 58 L -9 66"/>
+      <path d="M 14 42 L 17 58 M 17 58 L 9 66 M 17 58 L 25 66"/>
+    </g>
+    <!-- body + head -->
+    <ellipse cx="0" cy="6" rx="44" ry="44" fill="#f6f3ec" stroke="#4a4234" stroke-width="3.5"/>
+    <ellipse cx="0" cy="22" rx="26" ry="20" fill="#e4ddcf"/>
+    <circle cx="0" cy="-36" r="24" fill="#f6f3ec" stroke="#4a4234" stroke-width="3.5"/>
+    <!-- comb -->
+    <circle cx="-10" cy="-58" r="6.5" fill="#e0393e"/>
+    <circle cx="0" cy="-61" r="8" fill="#e0393e"/>
+    <circle cx="10" cy="-58" r="6.5" fill="#e0393e"/>
+    <!-- eyes -->
+    <circle cx="-9" cy="-40" r="6.5" fill="#fff"/><circle cx="9" cy="-40" r="6.5" fill="#fff"/>
+    <circle cx="-8" cy="-39" r="3.4" fill="#1a1a1a"/><circle cx="8" cy="-39" r="3.4" fill="#1a1a1a"/>
+    <!-- beak -->
+    <polygon points="-8,-33 8,-33 0,-23" fill="#ffb020" stroke="#b3771e" stroke-width="2"/>
+    <polygon points="-4,-22 4,-22 0,-17" fill="#e8871e"/>
+  </g>
+
+  <!-- falling egg -->
+  <ellipse cx="238" cy="238" rx="10" ry="14" fill="#fffdf4" stroke="#a89f88" stroke-width="2"/>
+
+  <!-- player shots -->
+  <rect x="176" y="216" width="7" height="34" rx="3.5" fill="url(#bolt)"/>
+  <rect x="176" y="262" width="7" height="30" rx="3.5" fill="url(#bolt)" opacity="0.8"/>
+
+  <!-- player ship -->
+  <g transform="translate(180 330)">
+    <polygon points="-2,-26 -34,12 -4,7" fill="#d8434a" stroke="#7e1f24" stroke-width="2"/>
+    <polygon points="2,-26 34,12 4,7" fill="#d8434a" stroke="#7e1f24" stroke-width="2"/>
+    <path d="M 0 -38 Q 13 -10 11 20 L 9 34 L -9 34 L -11 20 Q -13 -10 0 -38 Z"
+      fill="url(#hull)" stroke="#55617a" stroke-width="2.5"/>
+    <ellipse cx="0" cy="-6" rx="7" ry="11" fill="url(#glass)" stroke="#1a5f96" stroke-width="1.5"/>
+    <rect x="-6" y="18" width="12" height="4" fill="#ffd24a"/>
+    <polygon points="-8,36 0,58 8,36" fill="url(#flame)"/>
+  </g>
+
+  <!-- title -->
+  <text x="200" y="382" text-anchor="middle" font-family="Verdana, sans-serif" font-size="21"
+    font-weight="bold" fill="#ffd24a" stroke="#7a2f12" stroke-width="0.8" letter-spacing="1">CHICKEN INVADERS 2</text>
+</svg>
