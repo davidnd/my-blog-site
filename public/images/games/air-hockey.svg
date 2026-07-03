@@ -1,0 +1,28 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Neon Air Hockey">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#12184b"/><stop offset="1" stop-color="#05071b"/></linearGradient>
+    <linearGradient id="table" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#32105b"/><stop offset=".5" stop-color="#0a2350"/><stop offset="1" stop-color="#073b56"/></linearGradient>
+    <radialGradient id="pink"><stop stop-color="#fff"/><stop offset=".22" stop-color="#ff71bc"/><stop offset="1" stop-color="#a70861"/></radialGradient>
+    <radialGradient id="cyan"><stop stop-color="#fff"/><stop offset=".22" stop-color="#66f4ff"/><stop offset="1" stop-color="#0089ac"/></radialGradient>
+    <radialGradient id="puck"><stop stop-color="#fff"/><stop offset=".5" stop-color="#d9fbff"/><stop offset="1" stop-color="#4cbcdc"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#8bcaff" stroke-opacity=".11"/></pattern>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <g transform="translate(84 18)">
+    <rect x="0" width="232" height="364" rx="25" fill="url(#table)" stroke="#39e9ff" stroke-width="6" filter="url(#glow)"/>
+    <rect x="4" y="4" width="224" height="356" rx="21" fill="url(#grid)"/>
+    <path d="M4 182H228" stroke="#e9f8ff" stroke-opacity=".7" stroke-width="3" stroke-dasharray="10 8"/>
+    <circle cx="116" cy="182" r="42" fill="none" stroke="#e9f8ff" stroke-opacity=".48" stroke-width="3"/>
+    <path d="M72 4h88M72 360h88" stroke-width="8" stroke-linecap="round" stroke="#ff3fa4" filter="url(#glow)"/>
+    <path d="M72 360h88" stroke="#39e9ff" stroke-width="8" stroke-linecap="round" filter="url(#glow)"/>
+    <circle cx="88" cy="103" r="31" fill="url(#pink)" stroke="#fff" stroke-opacity=".8" stroke-width="3" filter="url(#glow)"/>
+    <circle cx="145" cy="278" r="31" fill="url(#cyan)" stroke="#fff" stroke-opacity=".8" stroke-width="3" filter="url(#glow)"/>
+    <path d="M129 144Q145 168 132 204" fill="none" stroke="#dffbff" stroke-opacity=".34" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="129" cy="139" r="14" fill="url(#puck)" filter="url(#glow)"/>
+  </g>
+  <g fill="#fff" font-family="system-ui,sans-serif" font-weight="900" text-anchor="middle">
+    <text x="200" y="44" font-size="16" letter-spacing="4" opacity=".9">NEON</text>
+    <text x="200" y="387" font-size="18" letter-spacing="2">AIR HOCKEY</text>
+  </g>
+</svg>
