@@ -53,6 +53,7 @@
   }
   .big-btn:hover { filter: brightness(1.12); }
   .big-btn.secondary { background: linear-gradient(180deg, #3d5a73, #2b3f52); font-weight: normal; font-size: 15px; }
+  a.big-btn { text-decoration: none; }
   #final-score { font-size: 44px; font-weight: bold; color: #ffd351; margin: 8px 0 14px; }
   #death-reason { opacity: .85; margin-bottom: 4px; }
 
@@ -101,7 +102,8 @@
     <h1>🐟 Big Fish Eat Small Fish</h1>
     <p class="sub">Move with the mouse (or WASD / arrows). Eat fish smaller than you to grow and evolve.<br>Bigger fish will eat <em>you</em>. Press <b>P</b> to pause, <b>M</b> to mute.</p>
     <div class="evo-row">Fry → Goldfish → Angelfish → Lionfish → Barracuda → 👑 Shark King</div>
-    <button class="big-btn" id="btn-start">▶ Start New Game</button>
+    <button class="big-btn" id="btn-start">▶ Start New Game</button><br>
+    <a class="big-btn secondary" href="/games/">← Back to Games</a>
     <h2 style="font-size:18px; margin-top:22px;">🏆 Leaderboard — Top 10</h2>
     <div id="lb-menu"></div>
   </div>
@@ -114,6 +116,7 @@
     <p class="sub">The ocean is holding its breath…</p>
     <button class="big-btn" id="btn-resume">▶ Resume (P)</button><br>
     <button class="big-btn secondary" id="btn-quit">↻ New Game</button>
+    <a class="big-btn secondary" href="/games/">← Back to Games</a>
   </div>
 </div>
 

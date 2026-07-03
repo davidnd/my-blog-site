@@ -108,6 +108,7 @@
   }
   .big-btn:hover { filter: brightness(1.2); }
   .big-btn.secondary { background: #1c1c32; border-color: var(--line); font-weight: normal; font-size: 13px; }
+  a.big-btn { text-decoration: none; }
   #final-score { font-size: 40px; font-weight: bold; color: var(--gold); letter-spacing: 3px; margin: 8px 0 4px; }
   #final-detail { color: var(--dim); font-size: 13px; margin-bottom: 12px; }
 
@@ -207,7 +208,8 @@
     <h1 class="px logo" id="logo"></h1>
     <p class="sub" style="margin-top:14px;">Stack the falling blocks, clear lines, chase the tetris.<br>
       <b>&#8592;&#8594;</b> move &middot; <b>&#8593;/X/Z</b> rotate &middot; <b>&#8595;</b> soft drop &middot; <b>Space</b> hard drop &middot; <b>C</b> hold</p>
-    <button class="big-btn" id="btn-start">Start</button>
+    <button class="big-btn" id="btn-start">Start</button><br>
+    <a class="big-btn secondary" href="/games/">&#8592; Back to games</a>
     <p class="sub blink px" style="margin-top:10px; font-size:11px;">Press Enter to start</p>
     <h2 class="px" style="font-size:14px; margin-top:14px;">&#9733; Top 10 &#9733;</h2>
     <div id="lb-menu"></div>
@@ -221,6 +223,7 @@
     <p class="sub">The stack waits for no one. Well, right now it does.</p>
     <button class="big-btn" id="btn-resume">Resume (P)</button><br>
     <button class="big-btn secondary" id="btn-quit">New game</button>
+    <a class="big-btn secondary" href="/games/">&#8592; Back to games</a>
   </div>
 </div>
 
