@@ -114,7 +114,7 @@
     <p class="sub">You against the bot, five penalties each. Score more than it does, or settle it in sudden death.</p>
     <div class="rules">
       <b>Shooting:</b> drag from the ball toward the goal. Direction aims the shot, a longer and faster drag adds power. Full power shots can go astray.<br>
-      <b>Goalkeeping:</b> when the bot steps up, tap or swipe where you want to dive: left, right or center. Tap high for a flying save.
+      <b>Goalkeeping:</b> when the bot steps up, click or drag the target inside the highlighted reachable area. Saves depend on distance from your target and shot power.
     </div>
     <div class="toggles">
       <button class="toggle" id="menu-music">♫ Music on</button>
@@ -160,6 +160,7 @@
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 
@@ -345,21 +346,28 @@ const audio = {
 /* ================= canvas / layout ================= */
 const canvas = $("game");
 const ctx = canvas.getContext("2d");
-const characterFrames = Array.from({ length: 8 }, (_, i) => {
+const polishedKeeperFrames = Array.from({ length: 4 }, (_, i) => {
   const img = new Image();
-  img.src = `/games/penalty/assets/character-${i}.png`;
+  img.src = `/games/penalty/assets/polished-keeper-${i}.png`;
   return img;
 });
-const botShooterFrames = Array.from({ length: 4 }, (_, i) => {
+const polishedPlayerBlueFrames = Array.from({ length: 4 }, (_, i) => {
   const img = new Image();
-  img.src = `/games/penalty/assets/character-bot-${i + 4}.png`;
+  img.src = `/games/penalty/assets/polished-player-blue-${i}.png`;
+  return img;
+});
+const polishedPlayerRedFrames = Array.from({ length: 4 }, (_, i) => {
+  const img = new Image();
+  img.src = `/games/penalty/assets/polished-player-red-${i}.png`;
   return img;
 });
 const ballArtwork = new Image();
 ballArtwork.src = "/games/penalty/assets/football-trimmed.png";
+const stadiumBackground = new Image();
+stadiumBackground.src = "/games/penalty/assets/stadium-background.png";
 let W = 0, H = 0, DPR = 1;
 const L = {}; // layout geometry, recomputed on resize
-let crowdCanvas = null;
+let crowdCanvas = null, pitchCanvas = null;
 
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -369,18 +377,24 @@ function resize() {
   canvas.height = Math.round(H * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-  L.horizon = H * 0.285;
-  L.goalW = Math.min(W * 0.54, H * 0.94);
-  L.goalH = Math.min(H * 0.3, L.goalW * 0.345);
+  // These ratios are measured from the painted stadium plate so gameplay,
+  // target selection and ball impacts line up with the visible frame.
+  L.bgY = -H * .07;
+  L.bgH = H * 1.07;
+  L.horizon = L.bgY + L.bgH * .54;
+  L.goalW = W * 0.553;
+  L.goalH = L.bgH * 0.36;
   L.gx0 = W / 2 - L.goalW / 2;
   L.gx1 = W / 2 + L.goalW / 2;
-  L.gy1 = L.horizon + H * 0.17;          // goal line (ground)
+  L.gy1 = L.bgY + L.bgH * 0.606;         // painted goal line
   L.gy0 = L.gy1 - L.goalH;               // crossbar
-  L.post = Math.max(4, L.goalW * 0.012); // post thickness
+  L.post = Math.max(5, L.goalW * 0.014); // dimensional frame like the thumbnail
   L.ballR = clamp(H * 0.026, 12, 27);
   L.ballX = W / 2;
-  L.ballY = H * 0.81;
-  L.keeperH = L.goalH * 0.54;
+  L.ballY = H * 0.86;
+  L.keeperH = L.goalH * 0.64;
+  // Compensate for transparent padding beneath the generated keeper sprites.
+  L.keeperGroundY = L.gy1 + H * .012;
 
   // pre-render the crowd band
   crowdCanvas = document.createElement("canvas");
@@ -389,7 +403,7 @@ function resize() {
   const c = crowdCanvas.getContext("2d");
   c.setTransform(DPR, 0, 0, DPR, 0, 0);
   const grad = c.createLinearGradient(0, 0, 0, L.horizon);
-  grad.addColorStop(0, "#06101f"); grad.addColorStop(0.58, "#142a46"); grad.addColorStop(1, "#253c58");
+  grad.addColorStop(0, "#020817"); grad.addColorStop(0.52, "#07162c"); grad.addColorStop(1, "#102846");
   c.fillStyle = grad;
   c.fillRect(0, 0, W, L.horizon);
   const cols = ["#e4c05a", "#c95d5d", "#5dc9c0", "#7a8fd4", "#d48fc0", "#9fd48f", "#e0e0e0", "#b08fd4"];
@@ -406,14 +420,52 @@ function resize() {
     }
   }
   c.globalAlpha = 1;
-  // stand roof, aisle and floodlight glow
+  // Stadium tiers, roof and floodlights match the thumbnail's night atmosphere.
   c.fillStyle = "#030812";
   c.fillRect(0, 0, W, L.horizon * 0.11);
-  c.fillStyle = "rgba(225,240,255,.1)";
-  c.fillRect(0, L.horizon * 0.87, W, 2);
+  c.strokeStyle = "rgba(130,180,225,.12)";
+  c.lineWidth = Math.max(2, H * .006);
+  for (const y of [L.horizon * .22, L.horizon * .56, L.horizon * .88]) {
+    c.beginPath(); c.moveTo(0, y); c.quadraticCurveTo(W / 2, y + H * .035, W, y); c.stroke();
+  }
   const glow = c.createRadialGradient(W * .5, 0, 0, W * .5, 0, W * .55);
-  glow.addColorStop(0, "rgba(205,230,255,.16)"); glow.addColorStop(1, "rgba(205,230,255,0)");
+  glow.addColorStop(0, "rgba(150,205,255,.13)"); glow.addColorStop(1, "rgba(150,205,255,0)");
   c.fillStyle = glow; c.fillRect(0, 0, W, L.horizon);
+
+  for (const side of [0.045, 0.955]) {
+    const lx = W * side, ly = H * .035;
+    const lampGlow = c.createRadialGradient(lx, ly, 0, lx, ly, H * .15);
+    lampGlow.addColorStop(0, "rgba(225,245,255,.62)"); lampGlow.addColorStop(.22, "rgba(130,200,255,.16)"); lampGlow.addColorStop(1, "rgba(90,170,255,0)");
+    c.fillStyle = lampGlow; c.fillRect(lx - H * .16, 0, H * .32, H * .24);
+    c.fillStyle = "#f6fbff";
+    const lamp = Math.max(3, H * .007);
+    for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) {
+      c.beginPath(); c.arc(lx + (xx - .5) * lamp * 2.2, ly + yy * lamp * 2.2, lamp, 0, Math.PI * 2); c.fill();
+    }
+  }
+
+  // Pre-render textured grass so individual blades never flicker between frames.
+  pitchCanvas = document.createElement("canvas");
+  pitchCanvas.width = Math.round(W * DPR);
+  pitchCanvas.height = Math.round((H - L.horizon) * DPR);
+  const p = pitchCanvas.getContext("2d");
+  p.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const ph = H - L.horizon;
+  const pg = p.createLinearGradient(0, 0, 0, ph);
+  pg.addColorStop(0, "#2c7c39"); pg.addColorStop(.48, "#398f43"); pg.addColorStop(1, "#17612b");
+  p.fillStyle = pg; p.fillRect(0, 0, W, ph);
+  for (let i = 0; i < 11; i++) {
+    const y0 = ph * Math.pow(i / 11, 1.55), y1 = ph * Math.pow((i + 1) / 11, 1.55);
+    if (i % 2 === 0) { p.fillStyle = "rgba(210,255,205,.045)"; p.fillRect(0, y0, W, y1 - y0); }
+  }
+  const bladeCount = Math.min(5200, Math.round(W * ph / 170));
+  p.lineWidth = 1;
+  for (let i = 0; i < bladeCount; i++) {
+    const x = Math.random() * W, y = Math.random() * ph;
+    const near = y / ph, len = .4 + near * 2.2;
+    p.strokeStyle = i % 3 ? `rgba(12,75,28,${.05 + near * .09})` : `rgba(190,235,125,${.035 + near * .06})`;
+    p.beginPath(); p.moveTo(x, y); p.lineTo(x + (Math.random() - .5) * 1.5, y - len); p.stroke();
+  }
 }
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", () => setTimeout(resize, 120));
@@ -437,7 +489,8 @@ const S = {
   kickPose: 0,        // shooter leg-swing 0..1
   netWobble: 0, postFlash: 0, shakeT: 0,
   drag: null,         // {x0,y0,t0,x,y}
-  confetti: [], fireworks: [], trail: [],
+  confetti: [], fireworks: [], trail: [], turf: [],
+  turfBurstDone: false,
   crowdBounce: 0,
   winner: null,
   msgTimer: 0,
@@ -489,7 +542,7 @@ function newMatch() {
   S.round = 1; S.suddenDeath = false;
   S.shooter = "you"; S.winner = null;
   S.shot = null; S.keeper = null; S.playerDive = null;
-  S.confetti.length = 0; S.fireworks.length = 0; S.trail.length = 0;
+  S.confetti.length = 0; S.fireworks.length = 0; S.trail.length = 0; S.turf.length = 0;
   $("end").classList.add("hidden");
   $("hud").classList.remove("hidden");
   startCountdown();
@@ -501,6 +554,7 @@ function startCountdown() {
   S.timer = 0.7;
   S.keeper = { dir: 0, high: false, t: 0, dur: 0.5, saving: false, idle: true };
   S.shot = null; S.playerDive = null; S.kickPose = 0;
+  S.turf.length = 0; S.turfBurstDone = false;
   setMsg("3", "neutral", S.shooter === "you" ? "You shoot" : "You keep — bot shoots");
   setHint(null);
   audio.sCount(false);
@@ -516,7 +570,7 @@ function startPhase() {
     S.mode = "keeperWait";
     S.botKickAt = rand(1.4, 2.6);
     S.playerDive = null;
-    setHint("Tap or swipe: left, right or center. Tap high to fly!");
+    setHint("Click a reachable spot inside the goal — you can adjust until the kick");
     audio.sWhistle(false);
   }
 }
@@ -533,6 +587,41 @@ function saveChance(shotCol, shotHigh, dvCol, dvHigh, power, edge) {
   if (edge) p -= 0.25;               // right in the corner
   if (power < 0.35) p = Math.max(p, 0.97); // soft shots at the keeper get eaten
   return clamp(p, 0.05, 0.98);
+}
+
+// The whole frame is selectable. Physical difficulty is represented by save
+// probability rather than silently changing the player's chosen target.
+const DIVE_REACH = { minU: .025, maxU: .975, minV: .025, maxV: .975 };
+function clampDiveTarget(u, v) {
+  return {
+    u: clamp(u, DIVE_REACH.minU, DIVE_REACH.maxU),
+    v: clamp(v, DIVE_REACH.minV, DIVE_REACH.maxV),
+    clamped: false,
+  };
+}
+
+function setPlayerDiveTarget(x, y) {
+  const chosen = clampDiveTarget((x - L.gx0) / L.goalW, (L.gy1 - y) / L.goalH);
+  S.playerDive = { ...chosen, none: false };
+  const where = chosen.u < .42 ? "left" : chosen.u > .58 ? "right" : "center";
+  const height = chosen.v > .58 ? "high" : chosen.v < .25 ? "low" : "mid";
+  setHint(`${where} ${height}${chosen.clamped ? " — maximum reachable point" : " — click again to adjust"}`);
+}
+
+// Continuous overlap: no invisible hard border between "save" and "goal".
+function playerSaveChance(sh, dive) {
+  if (!dive || dive.none) return 0;
+  const dx = (sh.u - dive.u) * L.goalW;
+  const dy = (sh.v - dive.v) * L.goalH;
+  const distance = Math.hypot(dx, dy);
+  const reach = L.goalH * .29;
+  const proximity = 1 - smoothstep(reach * .3, reach * 1.35, distance);
+  const powerFactor = clamp(1.18 - sh.power * .55, .5, .95);
+  // Even a perfectly anticipated shot near a post or the crossbar is much
+  // harder to stop. This fades continuously; there is no zone boundary.
+  const woodworkClearance = Math.min(sh.u, 1 - sh.u, 1 - sh.v);
+  const frameFactor = lerp(.22, 1, smoothstep(0, .18, woodworkClearance));
+  return clamp(proximity * powerFactor * frameFactor, 0, .97);
 }
 
 /* ---- player shoots ---- */
@@ -604,7 +693,10 @@ function releaseShot(drag) {
   };
   S.keeper = {
     dir: kCol === ZONES.CENTER ? 0 : kCol === ZONES.LEFT ? -1 : 1,
-    high: kHigh, t: 0, dur: Math.max(0.52, S.shot.dur * 1.18), saving: outcome === "save", idle: false,
+    high: kHigh,
+    targetU: outcome === "save" ? uu : kCol === ZONES.LEFT ? .22 : kCol === ZONES.RIGHT ? .78 : .5,
+    targetV: outcome === "save" ? clamp(v, .06, .94) : kHigh ? .7 : .26,
+    t: 0, dur: Math.max(0.52, S.shot.dur * 1.18), saving: outcome === "save", idle: false,
   };
   S.drag = null;
   S.mode = "kickAnim";
@@ -648,18 +740,17 @@ function botKick() {
 // called at the moment the bot strikes the ball: lock in the player's dive and the result
 function resolveBotOutcome() {
   const sh = S.shot;
-  const dv = S.playerDive || { col: ZONES.CENTER, high: false, none: true };
+  const dv = S.playerDive || { u: .5, v: .2, none: true };
   if (sh.outcome === "pending") {
-    const correctDirection = !dv.none && dv.col === sh.zoneCol;
-    let p = correctDirection ? saveChance(sh.zoneCol, sh.zoneHigh, dv.col, dv.high, sh.power, sh.u < 0.12 || sh.u > 0.88) : 0;
-    if (correctDirection) p = Math.min(0.98, p + 0.08); // player-friendly nudge
+    const p = playerSaveChance(sh, dv);
+    sh.saveChance = p;
     sh.outcome = Math.random() < p ? "save" : "goal";
   }
   // during bot kicks the on-screen keeper is YOU
+  const dir = dv.none || Math.abs(dv.u - .5) < .004 ? 0 : dv.u < .5 ? -1 : 1;
   S.keeper = {
-    dir: dv.none ? 0 : dv.col === ZONES.CENTER ? 0 : dv.col === ZONES.LEFT ? -1 : 1,
-    high: dv.none ? false : dv.high, t: 0, dur: Math.max(0.52, sh.dur * 1.18),
-    saving: sh.outcome === "save", idle: dv.none,
+    dir, high: dv.none ? false : dv.v > .5, targetU: dv.u, targetV: dv.v,
+    t: 0, dur: Math.max(0.52, sh.dur * 1.18), saving: sh.outcome === "save", idle: dv.none,
   };
 }
 
@@ -690,7 +781,7 @@ function resolveShot() {
     else { setMsg("MISSED!", "goal", "the bot blazes it " + (o === "over" ? "over" : "wide")); audio.sCheer(); }
   }
   S.mode = "result";
-  S.timer = 1.5;
+  S.timer = o === "save" ? 1.9 : 1.5;
   updateHud();
 }
 
@@ -758,6 +849,22 @@ function launchFirework() {
   audio.sFirework();
 }
 
+function burstTurf() {
+  const x = L.ballX - L.ballR * 4;
+  const y = L.ballY + L.ballR * 1.05;
+  for (let i = 0; i < 42; i++) {
+    const bright = i % 5 === 0;
+    S.turf.push({
+      x: x + rand(-L.ballR * .7, L.ballR * .5), y: y + rand(-2, 4),
+      vx: rand(-190, 125), vy: rand(-210, -45),
+      rot: rand(-1.2, 1.2), vr: rand(-11, 11),
+      len: rand(2, bright ? 8 : 6), width: rand(.8, 2.2),
+      col: bright ? pick(["#f5f1cf", "#d8e6ad", "#ffffff"]) : pick(["#9aca53", "#5d9d35", "#315f25", "#704d2b"]),
+      life: rand(.42, .88), maxLife: 1,
+    });
+  }
+}
+
 /* ================= update ================= */
 function update(dt) {
   S.time += dt;
@@ -767,7 +874,7 @@ function update(dt) {
   if (S.crowdBounce > 0) S.crowdBounce = Math.max(0, S.crowdBounce - dt * 0.8);
 
   // the keeper only launches once the ball is struck, never during the run-up
-  if (S.keeper && !S.keeper.idle && S.mode === "flight")
+  if (S.keeper && !S.keeper.idle && (S.mode === "flight" || S.mode === "result"))
     S.keeper.t = Math.min(1, S.keeper.t + dt / S.keeper.dur);
 
   switch (S.mode) {
@@ -789,6 +896,7 @@ function update(dt) {
       break;
     case "kickAnim":
       S.kickPose = Math.min(1, S.kickPose + dt / 0.82);
+      if (!S.turfBurstDone && S.kickPose >= .72) { S.turfBurstDone = true; burstTurf(); }
       S.timer -= dt;
       if (S.timer <= 0) {
         if (S.shooter === "bot") resolveBotOutcome();
@@ -831,6 +939,12 @@ function update(dt) {
     const p = S.trail[i]; p.life -= dt;
     if (p.life <= 0) S.trail.splice(i, 1);
   }
+  for (let i = S.turf.length - 1; i >= 0; i--) {
+    const p = S.turf[i];
+    p.life -= dt; p.vy += 430 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    p.vx *= .975;
+    if (p.life <= 0 || p.y > H + 20) S.turf.splice(i, 1);
+  }
   for (let i = S.confetti.length - 1; i >= 0; i--) {
     const p = S.confetti[i];
     p.life -= dt;
@@ -850,6 +964,15 @@ function update(dt) {
 let flightDone = false;
 function finishFlight() {
   if (S.mode !== "flight") return;
+  if (S.shot && S.shot.outcome === "save" && !S.shot.saveBounce) {
+    let dir = Math.sign(S.shot.u - .5);
+    if (!dir) dir = S.keeper && S.keeper.dir ? S.keeper.dir : 1;
+    S.shot.saveBounce = {
+      dir,
+      side: L.goalW * lerp(.09, .18, S.shot.power),
+      lift: L.goalH * lerp(.2, .1, S.shot.power),
+    };
+  }
   S.mode = "resolvePause";
   S.crowdBounce = 1;
   resolveShot();
@@ -873,7 +996,19 @@ function ballPos() {
 
   // Continue non-goal trajectories after impact so each result reads clearly.
   const q = clamp((sh.resultT || 0) / .72, 0, 1);
-  if (q > 0 && sh.outcome === "post") {
+  if (q > 0 && sh.outcome === "goal") {
+    // The net absorbs the strike, then drops and rolls the ball forward. It
+    // never remains pinned to the exact impact pixel.
+    const side = Math.sign(sh.u - .5) || 1;
+    x += -side * L.goalW * .035 * Math.sin(q * Math.PI * 3) * (1 - q);
+    y += -Math.sin(Math.PI * q) * L.goalH * .055 + q * q * L.goalH * .43;
+    r = lerp(r, L.ballR * .72, q);
+  } else if (q > 0 && sh.outcome === "save" && sh.saveBounce) {
+    const bounce = 1 - Math.pow(1 - q, 2.2);
+    x += sh.saveBounce.dir * sh.saveBounce.side * bounce;
+    y += -Math.sin(Math.PI * q) * sh.saveBounce.lift + q * q * L.goalH * .72;
+    r = lerp(r, L.ballR * .76, q);
+  } else if (q > 0 && sh.outcome === "post") {
     const inward = sh.u < .5 ? 1 : -1;
     x += inward * L.goalW * .13 * (1 - Math.pow(1 - q, 2.5));
     y += -Math.sin(q * Math.PI) * L.goalH * .15 + q * q * L.goalH * .35;
@@ -902,38 +1037,29 @@ function draw() {
     ctx.translate(rand(-s, s), rand(-s, s));
   }
 
-  // crowd
-  const bounce = Math.sin(S.time * 14) * 3 * S.crowdBounce;
-  if (crowdCanvas) ctx.drawImage(crowdCanvas, 0, bounce, W, L.horizon);
+  const paintedStadium = stadiumBackground.complete && stadiumBackground.naturalWidth;
+  if (paintedStadium) {
+    ctx.drawImage(stadiumBackground, 0, L.bgY, W, L.bgH);
+  } else {
+    // Procedural fallback while the painted stadium plate loads.
+    const bounce = Math.sin(S.time * 14) * 3 * S.crowdBounce;
+    if (crowdCanvas) ctx.drawImage(crowdCanvas, 0, bounce, W, L.horizon);
 
-  // pitch with a soft stadium-light falloff
-  const pg = ctx.createLinearGradient(0, L.horizon, 0, H);
-  pg.addColorStop(0, "#286c35");
-  pg.addColorStop(.38, "#328742");
-  pg.addColorStop(1, "#1b5a2c");
-  ctx.fillStyle = pg;
-  ctx.fillRect(0, L.horizon, W, H - L.horizon);
-
-  // mower stripes narrow toward the vanishing point
-  for (let i = 0; i < 10; i++) {
-    const t0 = i / 10, t1 = (i + 1) / 10;
-    const y0 = lerp(L.horizon, H, Math.pow(t0, 1.7));
-    const y1 = lerp(L.horizon, H, Math.pow(t1, 1.7));
-    if (i % 2 === 0) {
-      ctx.fillStyle = "rgba(220,255,220,.045)";
-      ctx.fillRect(0, y0, W, y1 - y0);
-    }
-  }
-  const fieldLight = ctx.createRadialGradient(W * .5, H * .4, 0, W * .5, H * .4, W * .7);
-  fieldLight.addColorStop(0, "rgba(255,255,230,.11)"); fieldLight.addColorStop(1, "rgba(0,20,5,.13)");
+  // Detailed grass and floodlight falloff, pre-rendered so texture stays stable.
+  if (pitchCanvas) ctx.drawImage(pitchCanvas, 0, L.horizon, W, H - L.horizon);
+  else { ctx.fillStyle = "#2f843d"; ctx.fillRect(0, L.horizon, W, H - L.horizon); }
+  const fieldLight = ctx.createRadialGradient(W * .5, H * .43, 0, W * .5, H * .43, W * .68);
+  fieldLight.addColorStop(0, "rgba(245,255,215,.13)");
+  fieldLight.addColorStop(.58, "rgba(120,185,95,.03)");
+  fieldLight.addColorStop(1, "rgba(0,16,7,.24)");
   ctx.fillStyle = fieldLight; ctx.fillRect(0, L.horizon, W, H - L.horizon);
 
   // penalty area, drawn in perspective
   ctx.strokeStyle = "rgba(244,249,239,.78)";
   ctx.lineWidth = Math.max(1.8, H * 0.0032);
   const boxTopY = L.gy1;
-  const boxBotY = H * 0.925;
-  const topHalf = L.goalW * 0.69, botHalf = W * 0.49;
+  const boxBotY = H * 0.96;
+  const topHalf = L.goalW * 0.67, botHalf = W * 0.475;
   ctx.beginPath();
   ctx.moveTo(W / 2 - topHalf, boxTopY);
   ctx.lineTo(W / 2 - botHalf, boxBotY);
@@ -947,8 +1073,10 @@ function draw() {
   ctx.stroke();
   ctx.fillStyle = "rgba(246,250,241,.9)";
   ctx.beginPath(); ctx.ellipse(L.ballX, L.ballY + L.ballR * .94, L.ballR * .22, L.ballR * .1, 0, 0, Math.PI * 2); ctx.fill();
+  }
 
-  drawGoal();
+  if (!paintedStadium) drawGoal();
+  drawKeeperReachOverlay();
   const ballCaught = S.shot && S.shot.outcome === "save" && S.shot.t >= .8 &&
     (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
   if (ballCaught) {
@@ -957,8 +1085,14 @@ function draw() {
   }
   drawKeeper();
 
+  // Before contact the ball sits behind the striker's boot. Once struck, it
+  // moves to the foreground flight layer.
+  const movingBall = S.shot && (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
+  if (!ballCaught && !movingBall) drawBall(L.ballX, L.ballY, L.ballR);
+
   // shooter (you at the spot, or the bot player)
   if (S.mode !== "end") drawShooter();
+  drawTurfSpray();
 
   // aim guide
   if (S.mode === "aim" && S.drag) drawAimGuide();
@@ -977,8 +1111,8 @@ function draw() {
   ctx.globalAlpha = 1;
 
   // ball
-  if (!ballCaught && (S.mode !== "end" || true)) {
-    const p = (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause") && S.shot ? ballPos() : { x: L.ballX, y: L.ballY, r: L.ballR };
+  if (!ballCaught && movingBall) {
+    const p = ballPos();
     drawBall(p.x, p.y, p.r);
   }
 
@@ -1001,20 +1135,67 @@ function draw() {
   ctx.globalAlpha = 1;
 }
 
+function drawTurfSpray() {
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const p of S.turf) {
+    ctx.save();
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.globalAlpha = clamp(p.life / .32, 0, 1);
+    ctx.strokeStyle = p.col; ctx.lineWidth = p.width;
+    ctx.beginPath(); ctx.moveTo(-p.len * .5, 0); ctx.lineTo(p.len * .5, 0); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawKeeperReachOverlay() {
+  const choosing = S.shooter === "bot" && (S.mode === "keeperWait" || S.mode === "kickAnim");
+  if (!choosing) return;
+  const x = L.gx0 + DIVE_REACH.minU * L.goalW;
+  const y = L.gy1 - DIVE_REACH.maxV * L.goalH;
+  const w = (DIVE_REACH.maxU - DIVE_REACH.minU) * L.goalW;
+  const h = (DIVE_REACH.maxV - DIVE_REACH.minV) * L.goalH;
+  ctx.save();
+  ctx.fillStyle = "rgba(95,225,145,.075)";
+  ctx.strokeStyle = "rgba(145,255,185,.52)";
+  ctx.lineWidth = Math.max(1.5, H * .0025);
+  ctx.setLineDash([8, 7]);
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]);
+  for (const [u, v] of [[.08,.12],[.5,.12],[.92,.12],[.08,.5],[.5,.5],[.92,.5],[.08,.88],[.5,.88],[.92,.88]]) {
+    const x = L.gx0 + u * L.goalW, y = L.gy1 - v * L.goalH;
+    ctx.fillStyle = "rgba(210,255,225,.42)";
+    ctx.beginPath(); ctx.arc(x, y, Math.max(2.5, H * .0045), 0, Math.PI * 2); ctx.fill();
+  }
+  if (S.playerDive && !S.playerDive.none) {
+    const x = L.gx0 + S.playerDive.u * L.goalW;
+    const y = L.gy1 - S.playerDive.v * L.goalH;
+    const r = Math.max(10, H * .017);
+    ctx.strokeStyle = "#8dffae"; ctx.lineWidth = Math.max(2, H * .0032);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-r*1.45,y); ctx.lineTo(x+r*1.45,y); ctx.moveTo(x,y-r*1.45); ctx.lineTo(x,y+r*1.45); ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawGoal() {
   const { gx0, gx1, gy0, gy1, post } = L;
+  const mouthShadow = ctx.createRadialGradient(W / 2, gy1, 0, W / 2, gy1, L.goalW * .55);
+  mouthShadow.addColorStop(0, "rgba(1,10,7,.27)"); mouthShadow.addColorStop(1, "rgba(1,10,7,0)");
+  ctx.fillStyle = mouthShadow; ctx.fillRect(gx0 - L.goalW * .08, gy0, L.goalW * 1.16, L.goalH * 1.12);
   // net
   const wob = Math.sin(S.time * 26) * S.netWobble * L.goalH * 0.06;
-  const depth = L.goalH * 0.28;
-  const cells = 14;
+  const depth = L.goalH * 0.22;
+  const cells = 18;
   // back plane of the net
-  const bx0 = gx0 + depth * 0.6, bx1 = gx1 - depth * 0.6, by0 = gy0 + depth * 0.35;
+  const bx0 = gx0 + depth * .24, bx1 = gx1 - depth * .24, by0 = gy0 + depth * .16;
   const netShade = ctx.createLinearGradient(0, gy0, 0, gy1);
-  netShade.addColorStop(0, "rgba(9,20,32,.27)"); netShade.addColorStop(1, "rgba(8,26,18,.08)");
+  netShade.addColorStop(0, "rgba(3,11,24,.56)"); netShade.addColorStop(1, "rgba(5,25,18,.20)");
   ctx.fillStyle = netShade;
   ctx.beginPath(); ctx.moveTo(gx0, gy0); ctx.lineTo(gx1, gy0); ctx.lineTo(bx1, by0); ctx.lineTo(bx1, gy1); ctx.lineTo(bx0, gy1); ctx.lineTo(bx0, by0); ctx.closePath(); ctx.fill();
 
-  ctx.strokeStyle = "rgba(226,238,242,.44)";
+  ctx.strokeStyle = "rgba(220,233,237,.52)";
   ctx.lineWidth = Math.max(.7, H * .00115);
   ctx.beginPath();
   for (let i = 0; i <= cells; i++) {
@@ -1232,40 +1413,82 @@ function keeperVisual(k) {
 
 function keeperSpriteState(k) {
   const h = L.keeperH;
+  const ready = polishedKeeperFrames[0];
+  // Every pose uses the ready sprite's pixels-per-body-height scale. Generated
+  // pose bounds differ, but the keeper's body never shrinks during a jump.
+  const scale = h / (ready.naturalHeight || 452);
   if (!k || k.idle || k.t <= .11) {
-    const img = characterFrames[0];
-    const dh = h, dw = dh * (img.naturalWidth || 256) / (img.naturalHeight || 325);
+    const img = ready;
+    const dw = (img.naturalWidth || 359) * scale, dh = (img.naturalHeight || 452) * scale;
     const sway = Math.sin(S.time * 1.45) * L.goalW * .012;
-    return { img, x: W / 2 + sway - dw / 2, y: L.gy1 - dh, w: dw, h: dh, flip: false,
-      hands: [{ x: W / 2 + sway - dw * .43, y: L.gy1 - dh * .46 }, { x: W / 2 + sway + dw * .43, y: L.gy1 - dh * .46 }] };
+    return { img, x: W / 2 + sway - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false,
+      hands: [{ x: W / 2 + sway - dw * .43, y: L.keeperGroundY - dh * .54 }, { x: W / 2 + sway + dw * .43, y: L.keeperGroundY - dh * .54 }] };
   }
 
   const phase = clamp((k.t - .09) / .91, 0, 1);
   const e = 1 - Math.pow(1 - phase, 3);
   if (k.dir === 0) {
-    const img = characterFrames[k.high ? 3 : 0];
-    const dh = h * (k.high ? 1.08 : .94);
-    const dw = dh * (img.naturalWidth || 153) / (img.naturalHeight || 418);
-    const lift = k.high ? Math.sin(Math.PI * phase) * h * .38 : 0;
-    const x = W / 2 - dw / 2, y = L.gy1 - dh - lift;
-    const hands = k.high ? [{ x: W / 2 - dw * .08, y: y + dh * .025 }, { x: W / 2 + dw * .08, y: y + dh * .025 }]
-                         : [{ x: x + dw * .08, y: y + dh * .44 }, { x: x + dw * .92, y: y + dh * .44 }];
-    return alignSavingKeeper({ img, x, y, w: dw, h: dh, flip: false, hands,
-      contact: k.high ? { x: W / 2, y: y + dh * .04 } : { x: W / 2, y: y + dh * .72 } }, k);
+    const img = polishedKeeperFrames[k.high ? 3 : 0];
+    const dw = (img.naturalWidth || (k.high ? 195 : 359)) * scale;
+    const dh = (img.naturalHeight || (k.high ? 508 : 452)) * scale;
+    const lift = k.high ? Math.sin(Math.PI * phase) * h * .34 : 0;
+    const x = W / 2 - dw / 2, y = L.keeperGroundY - dh - lift;
+    const hands = k.high ? [{ x: W / 2 - dw * .12, y: y + dh * .025 }, { x: W / 2 + dw * .12, y: y + dh * .025 }]
+                         : [{ x: x + dw * .08, y: y + dh * .46 }, { x: x + dw * .92, y: y + dh * .46 }];
+    const lowContact = y + dh * (k.targetV == null ? .82 : clamp(.95 - k.targetV * 1.4, .38, .86));
+    let state = { img, x, y, w: dw, h: dh, flip: false, hands,
+      contact: k.high ? { x: W / 2, y: y + dh * .035 } : { x: W / 2, y: lowContact } };
+    state = alignKeeperToDiveTarget(state, k);
+    return alignSavingKeeper(state, k);
   }
 
-  const img = characterFrames[k.high ? 1 : 2];
-  const dh = h * (k.high ? 1.03 : .72);
-  const dw = dh * (img.naturalWidth || (k.high ? 401 : 393)) / (img.naturalHeight || (k.high ? 376 : 220));
-  const cx = W / 2 + k.dir * L.goalW * .275 * e;
-  const lift = Math.sin(Math.PI * phase) * h * (k.high ? .33 : .12);
-  const cy = L.gy1 - dh * .48 - lift;
-  const x = cx - dw / 2, y = cy - dh / 2;
+  const img = polishedKeeperFrames[k.high ? 1 : 2];
+  const dw = (img.naturalWidth || (k.high ? 496 : 537)) * scale;
+  const dh = (img.naturalHeight || (k.high ? 606 : 277)) * scale;
+  const cx = W / 2 + k.dir * L.goalW * .285 * e;
+  const lift = Math.sin(Math.PI * phase) * h * (k.high ? .24 : .08);
+  const x = cx - dw / 2;
+  const y = L.keeperGroundY - dh * (k.high ? .9 : .92) - lift;
   const leadX = k.dir > 0 ? x + dw * .965 : x + dw * .035;
-  const handY = y + dh * (k.high ? .09 : .47);
+  const handY = y + dh * (k.high ? .07 : .48);
   const hands = [{ x: leadX, y: handY }, { x: leadX - k.dir * dw * .055, y: handY + dh * .035 }];
-  return alignSavingKeeper({ img, x, y, w: dw, h: dh, flip: k.dir < 0, hands,
-    contact: { x: (hands[0].x + hands[1].x) / 2, y: (hands[0].y + hands[1].y) / 2 } }, k);
+  let state = { img, x, y, w: dw, h: dh, flip: k.dir < 0, hands,
+    contact: { x: (hands[0].x + hands[1].x) / 2, y: (hands[0].y + hands[1].y) / 2 } };
+  state = alignKeeperToDiveTarget(state, k);
+  return alignSavingKeeper(state, k);
+}
+
+function keeperDiveBlend(k) {
+  return smoothstep(.11, .56, k.t);
+}
+
+function keeperSaveBlend(k) {
+  let blend = keeperDiveBlend(k);
+  if (S.mode === "result" && S.shot) {
+    // Release only the small ball-contact correction. The player's chosen
+    // landing target remains fixed, preventing a second sideways slide.
+    blend *= 1 - smoothstep(.1, .78, S.shot.resultT || 0);
+  }
+  return blend;
+}
+
+function translateKeeperState(state, dx, dy) {
+  state.x += dx; state.y += dy;
+  state.hands = state.hands.map((hand) => ({ x: hand.x + dx, y: hand.y + dy }));
+  if (state.contact) state.contact = { x: state.contact.x + dx, y: state.contact.y + dy };
+  return state;
+}
+
+function alignKeeperToDiveTarget(state, k) {
+  if (k.targetU == null || k.targetV == null) return state;
+  const contact = state.contact || {
+    x: (state.hands[0].x + state.hands[1].x) / 2,
+    y: (state.hands[0].y + state.hands[1].y) / 2,
+  };
+  const targetX = L.gx0 + k.targetU * L.goalW;
+  const targetY = L.gy1 - k.targetV * L.goalH;
+  const blend = keeperDiveBlend(k);
+  return translateKeeperState(state, (targetX - contact.x) * blend, (targetY - contact.y) * blend);
 }
 
 function alignSavingKeeper(state, k) {
@@ -1277,28 +1500,46 @@ function alignSavingKeeper(state, k) {
     x: (state.hands[0].x + state.hands[1].x) / 2,
     y: (state.hands[0].y + state.hands[1].y) / 2,
   };
-  const t = clamp((k.t - .11) / .44, 0, 1);
-  const reach = t * t * (3 - 2 * t);
+  const reach = keeperSaveBlend(k);
   const dx = (ball.x - contact.x) * reach;
   const dy = (ball.y - contact.y) * reach;
-  state.x += dx; state.y += dy;
-  state.hands = state.hands.map((hand) => ({ x: hand.x + dx, y: hand.y + dy }));
-  state.contact = { x: contact.x + dx, y: contact.y + dy };
-  return state;
+  return translateKeeperState(state, dx, dy);
+}
+
+function keeperLandedSpriteState(k) {
+  const ready = polishedKeeperFrames[0];
+  const scale = L.keeperH / (ready.naturalHeight || 452);
+  const fallbackU = k && k.dir ? .5 + k.dir * .285 : .5;
+  const targetX = L.gx0 + (k && k.targetU != null ? k.targetU : fallbackU) * L.goalW;
+  if (!k || k.dir === 0) {
+    const dw = (ready.naturalWidth || 359) * scale, dh = (ready.naturalHeight || 452) * scale;
+    return { img: ready, x: targetX - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false };
+  }
+  const img = polishedKeeperFrames[2];
+  const dw = (img.naturalWidth || 555) * scale, dh = (img.naturalHeight || 268) * scale;
+  const leadFraction = k.dir > 0 ? .965 : .035;
+  return { img, x: targetX - dw * leadFraction, y: L.keeperGroundY - dh * .92, w: dw, h: dh, flip: k.dir < 0 };
+}
+
+function paintKeeperSprite(s, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (s.flip) {
+    ctx.translate(s.x + s.w, s.y);
+    ctx.scale(-1, 1);
+    ctx.drawImage(s.img, 0, 0, s.w, s.h);
+  } else ctx.drawImage(s.img, s.x, s.y, s.w, s.h);
+  ctx.restore();
 }
 
 function drawKeeper() {
   const k = S.keeper;
-  if (characterFrames[0].complete && characterFrames[0].naturalWidth) {
+  if (polishedKeeperFrames[0].complete && polishedKeeperFrames[0].naturalWidth) {
     const s = keeperSpriteState(k);
-    shadow(s.x + s.w / 2, L.gy1 + L.keeperH * .015, Math.max(s.w * .32, L.keeperH * .2));
-    ctx.save();
-    if (s.flip) {
-      ctx.translate(s.x + s.w, s.y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(s.img, 0, 0, s.w, s.h);
-    } else ctx.drawImage(s.img, s.x, s.y, s.w, s.h);
-    ctx.restore();
+    shadow(s.x + s.w / 2, L.keeperGroundY + L.keeperH * .015, Math.max(s.w * .32, L.keeperH * .2));
+    const landing = S.mode === "result" && k && !k.idle ? smoothstep(.08, .62, S.shot ? S.shot.resultT || 0 : 0) : 0;
+    if (landing < 1) paintKeeperSprite(s, 1 - landing);
+    if (landing > 0) paintKeeperSprite(keeperLandedSpriteState(k), landing);
     return;
   }
   const isYou = S.shooter === "bot";
@@ -1327,52 +1568,54 @@ const SP_FOLLOW = { lean: 0.12, headTilt: 0.1,
   armL: { a1: -1.0, a2: -0.2 }, armR: { a1: 1.15, a2: 0.35 } };
 
 function shooterRunStart() {
-  return { x: L.ballX - L.ballR * 4.6, y: Math.min(H - L.ballR, L.ballY + L.ballR * 4.4) };
+  return {
+    x: L.ballX - L.ballR * 9.6,
+    y: Math.min(H * 1.03, L.ballY + L.ballR * 4.4 + H * .05),
+  };
 }
 
 function drawShooterSprite() {
-  const frames = S.shooter === "bot" ? botShooterFrames : characterFrames;
-  const frameImage = (frame) => S.shooter === "bot" ? frames[frame - 4] : frames[frame];
-  const h = clamp(L.ballR * 8.15, 120, H * .245);
+  const frames = S.shooter === "bot" ? polishedPlayerRedFrames : polishedPlayerBlueFrames;
+  // Match the thumbnail's foreground perspective: the striker occupies about
+  // 60% of the viewport height rather than reading as a miniature field figure.
+  const h = H * .5185;
+  const scale = h / (frames[0].naturalHeight || 520);
   const start = shooterRunStart();
   const plantX = L.ballX - L.ballR * 1.25;
-  const groundY = L.ballY + L.ballR * .72;
-  let frame = 4, cx = start.x, bottom = start.y + h * .03, dh = h;
+  const groundY = L.ballY + L.ballR + H * .035;
+  let frame = 0, cx = start.x, bottom = start.y + h * .03;
 
   if (S.mode === "kickAnim") {
     const t = S.kickPose;
     if (t < .58) {
-      frame = 5;
+      frame = 1;
       const run = t / .58, e = run * run * (3 - 2 * run);
-      cx = lerp(start.x, plantX - L.ballR * .3, e);
+      cx = lerp(start.x, plantX - L.ballR * 1.8, e);
       bottom = lerp(start.y, groundY, e) - Math.abs(Math.sin(run * Math.PI * 3)) * h * .018;
-      dh = h * .98;
     } else {
-      frame = 6;
-      const img = frameImage(frame);
-      dh = h * .94;
-      const dw = dh * img.naturalWidth / img.naturalHeight;
-      // The generated contact pose's extended boot sits at the right edge.
-      cx = L.ballX - dw * .42;
+      frame = 2;
+      const img = frames[frame];
+      const dw = img.naturalWidth * scale;
+      // Shift the contact frame left so the plant boot stays behind the ball.
+      cx = L.ballX - dw * .47;
       bottom = groundY;
     }
   } else if ((S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause") && S.shot) {
-    frame = 7;
-    dh = h * .94;
-    const img = frameImage(frame);
-    const dw = dh * img.naturalWidth / img.naturalHeight;
-    cx = L.ballX - dw * .32;
+    frame = 3;
+    const img = frames[frame];
+    const dw = img.naturalWidth * scale;
+    cx = L.ballX - dw * .22;
     bottom = groundY;
   }
 
-  const img = frameImage(frame);
-  const dw = dh * img.naturalWidth / img.naturalHeight;
+  const img = frames[frame];
+  const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
   shadow(cx, bottom + h * .015, Math.max(h * .16, dw * .22));
   ctx.drawImage(img, cx - dw / 2, bottom - dh, dw, dh);
 }
 
 function drawShooter() {
-  const firstFrame = S.shooter === "bot" ? botShooterFrames[0] : characterFrames[4];
+  const firstFrame = S.shooter === "bot" ? polishedPlayerRedFrames[0] : polishedPlayerBlueFrames[0];
   if (firstFrame.complete && firstFrame.naturalWidth) {
     drawShooterSprite();
     return;
@@ -1565,12 +1808,19 @@ canvas.addEventListener("pointerdown", (e) => {
       canvas.setPointerCapture(e.pointerId);
     }
   } else if (S.mode === "keeperWait" || (S.mode === "kickAnim" && S.shooter === "bot")) {
-    S.diveTouch = { x0: p.x, y0: p.y, t0: performance.now() };
-    canvas.setPointerCapture(e.pointerId);
+    const insideGoal = p.x >= L.gx0 && p.x <= L.gx1 && p.y >= L.gy0 && p.y <= L.gy1;
+    if (insideGoal) {
+      S.diveTouch = { x0: p.x, y0: p.y, t0: performance.now() };
+      setPlayerDiveTarget(p.x, p.y);
+      canvas.setPointerCapture(e.pointerId);
+    } else setHint("Click inside the highlighted reachable goal area");
   }
 });
 canvas.addEventListener("pointermove", (e) => {
   if (S.drag) { S.drag.x = e.clientX; S.drag.y = e.clientY; }
+  if (S.diveTouch && (S.mode === "keeperWait" || (S.mode === "kickAnim" && S.shooter === "bot"))) {
+    setPlayerDiveTarget(clamp(e.clientX, L.gx0, L.gx1), clamp(e.clientY, L.gy0, L.gy1));
+  }
 });
 canvas.addEventListener("pointerup", (e) => {
   e.preventDefault();
@@ -1580,18 +1830,7 @@ canvas.addEventListener("pointerup", (e) => {
     S.drag.x = p.x; S.drag.y = p.y;
     releaseShot(S.drag);
   } else if ((S.mode === "keeperWait" || (S.mode === "kickAnim" && S.shooter === "bot")) && S.diveTouch) {
-    const dx = p.x - S.diveTouch.x0, dy = p.y - S.diveTouch.y0;
-    const len = Math.hypot(dx, dy);
-    let col, high;
-    if (len > 28) { // swipe
-      col = Math.abs(dx) < len * 0.38 ? ZONES.CENTER : dx < 0 ? ZONES.LEFT : ZONES.RIGHT;
-      high = dy < -len * 0.3;
-    } else { // tap: thirds of the screen, top 45% = high
-      col = p.x < W * 0.36 ? ZONES.LEFT : p.x > W * 0.64 ? ZONES.RIGHT : ZONES.CENTER;
-      high = p.y < H * 0.45;
-    }
-    S.playerDive = { col, high };
-    setHint("Diving " + (col === ZONES.CENTER ? "center" : col === ZONES.LEFT ? "left" : "right") + (high ? " (high)" : "") + " — change until the kick!");
+    setPlayerDiveTarget(clamp(p.x, L.gx0, L.gx1), clamp(p.y, L.gy0, L.gy1));
     S.diveTouch = null;
   }
 });
