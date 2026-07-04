@@ -1,0 +1,80 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Penalty Shootout">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#0a1733"/><stop offset="1" stop-color="#17335a"/>
+    </linearGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#409b4f"/><stop offset="1" stop-color="#17612c"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="35%" cy="28%">
+      <stop stop-color="#fff"/><stop offset=".75" stop-color="#edf1f4"/><stop offset="1" stop-color="#abb6bf"/>
+    </radialGradient>
+    <clipPath id="strikerShirt"><path d="M140 302Q160 296 180 302L177 356H143Z"/></clipPath>
+  </defs>
+
+  <rect width="400" height="400" rx="24" fill="url(#sky)"/>
+  <g opacity=".9">
+    <g fill="#e0bf5c"><circle cx="18" cy="55" r="3"/><circle cx="70" cy="79" r="3"/><circle cx="122" cy="54" r="3"/><circle cx="180" cy="82" r="3"/><circle cx="243" cy="58" r="3"/><circle cx="301" cy="80" r="3"/><circle cx="365" cy="55" r="3"/></g>
+    <g fill="#67c9c1"><circle cx="42" cy="73" r="3"/><circle cx="98" cy="93" r="3"/><circle cx="151" cy="72" r="3"/><circle cx="214" cy="91" r="3"/><circle cx="274" cy="69" r="3"/><circle cx="335" cy="92" r="3"/><circle cx="386" cy="76" r="3"/></g>
+    <g fill="#c66b7a"><circle cx="25" cy="96" r="3"/><circle cx="91" cy="58" r="3"/><circle cx="142" cy="96" r="3"/><circle cx="203" cy="61" r="3"/><circle cx="267" cy="96" r="3"/><circle cx="326" cy="58" r="3"/><circle cx="378" cy="99" r="3"/></g>
+    <g fill="#8ea2d8"><circle cx="55" cy="53" r="3"/><circle cx="112" cy="76" r="3"/><circle cx="169" cy="57" r="3"/><circle cx="232" cy="78" r="3"/><circle cx="291" cy="54" r="3"/><circle cx="351" cy="76" r="3"/></g>
+  </g>
+
+  <path d="M0 116H400V400H0Z" fill="url(#grass)"/>
+  <path d="M0 165H400V196H0ZM0 248H400V292H0Z" fill="#fff" opacity=".045"/>
+  <!-- penalty box + D arc, matching the in-game perspective -->
+  <path d="M18 300L60 190H340L382 300" fill="none" stroke="#f4f7ee" stroke-width="2.4" opacity=".85"/>
+  <path d="M132 300Q200 256 268 300" fill="none" stroke="#f6faf4" stroke-width="2.4" opacity=".85"/>
+
+  <!-- compact, correctly proportioned goal -->
+  <path d="M80 127L96 140H304L320 127M80 177L96 190H304L320 177" fill="none" stroke="#d8e7ed" stroke-width="1.5" opacity=".5"/>
+  <g stroke="#dce9ed" stroke-width="1.25" opacity=".62">
+    <path d="M80 127V190M120 127V190M160 127V190M200 127V190M240 127V190M280 127V190M320 127V190"/>
+    <path d="M80 143H320M80 159H320M80 175H320"/>
+  </g>
+  <path d="M78 192V124H322V192" fill="none" stroke="#0b1720" stroke-width="10" opacity=".25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 192V124H322V192" fill="none" stroke="#f8fbff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M79 123H321" stroke="#fff" stroke-width="2" opacity=".75"/>
+
+  <!-- goalkeeper: green kit, red gloves, set in a ready crouch on the line -->
+  <ellipse cx="200" cy="199" rx="27" ry="6" fill="#08160d" opacity=".3"/>
+  <path d="M196 172L189 197M204 172L211 197" stroke="#1c2b52" stroke-width="9" stroke-linecap="round"/>
+  <path d="M184 197H192M208 197H216" stroke="#0f1730" stroke-width="7" stroke-linecap="round"/>
+  <path d="M186 167H214L212 181H188Z" fill="#3f9138"/>
+  <path d="M187 152Q200 148 213 152L214 170Q200 174 186 170Z" fill="#46a03f" stroke="#1f5a22" stroke-width="2"/>
+  <path d="M189 156L171 170M211 156L229 170" stroke="#46a03f" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="170" cy="171" r="6.5" fill="#ef514c"/>
+  <circle cx="230" cy="171" r="6.5" fill="#ef514c"/>
+  <circle cx="200" cy="142" r="11" fill="#efb483" stroke="#3c2a20" stroke-width="1.6"/>
+  <path d="M190 141Q190 132 200 132Q210 132 210 141Q205 137 200 137Q195 137 190 141Z" fill="#2a1c14"/>
+
+  <!-- classic football at the penalty spot -->
+  <g transform="translate(240 232)">
+    <circle r="15" fill="#07131b" opacity=".22" transform="translate(2 3)"/>
+    <circle r="14" fill="url(#ball)" stroke="#26323b" stroke-width="1.4"/>
+    <path d="M0-4L5-1L3 6H-3L-5-1Z" fill="#202a32"/>
+    <path d="M0-4L-6-10M5-1L12-4M3 6L7 12M-3 6L-8 11M-5-1L-12-5" stroke="#56616a" stroke-width="1.2"/>
+    <path d="M-6-10L2-13L9-9L12-4L13 4L7 12L0 14L-8 11L-13 3L-12-5Z" fill="none" stroke="#56616a" stroke-width="1.1"/>
+  </g>
+
+  <!-- striker from behind: sky-blue-and-white striped kit, black shorts -->
+  <ellipse cx="160" cy="390" rx="30" ry="6" fill="#06140b" opacity=".32"/>
+  <circle cx="160" cy="292" r="16" fill="#efb483" stroke="#3c2a20" stroke-width="2"/>
+  <path d="M145 294Q145 275 160 275Q175 275 175 294Q168 288 160 288Q152 288 145 294Z" fill="#3a2a1e"/>
+  <path d="M140 302Q160 296 180 302L177 356H143Z" fill="#eef4fb" stroke="#2b3138" stroke-width="2"/>
+  <g clip-path="url(#strikerShirt)" fill="#7cb3e3">
+    <rect x="142" y="296" width="6" height="64"/>
+    <rect x="154" y="296" width="6" height="64"/>
+    <rect x="166" y="296" width="6" height="64"/>
+    <rect x="177" y="296" width="4" height="64"/>
+  </g>
+  <path d="M143 308L133 346M177 308L187 346" stroke="#efb483" stroke-width="9" stroke-linecap="round"/>
+  <path d="M143 354H177L175 374H163L160 360L157 374H145Z" fill="#16181c"/>
+  <path d="M151 373L149 388M169 373L171 388" stroke="#f2f4f6" stroke-width="8"/>
+  <path d="M149 388H140M171 388H180" stroke="#14161a" stroke-width="7" stroke-linecap="round"/>
+
+  <g font-family="Inter,system-ui,sans-serif" text-anchor="middle" fill="#f6fff7">
+    <text x="200" y="33" font-size="14" font-weight="900" letter-spacing="3">PENALTY SHOOTOUT</text>
+    <text x="200" y="55" font-size="8" font-weight="800" letter-spacing="2" fill="#8dffa7">PICK A CORNER · MAKE THE SAVE</text>
+  </g>
+</svg>
