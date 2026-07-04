@@ -896,7 +896,7 @@ function update(dt) {
       break;
     case "kickAnim":
       S.kickPose = Math.min(1, S.kickPose + dt / 0.82);
-      if (!S.turfBurstDone && S.kickPose >= .72) { S.turfBurstDone = true; burstTurf(); }
+      if (!S.turfBurstDone && S.kickPose >= .96) { S.turfBurstDone = true; burstTurf(); }
       S.timer -= dt;
       if (S.timer <= 0) {
         if (S.shooter === "bot") resolveBotOutcome();
@@ -919,7 +919,10 @@ function update(dt) {
       break;
     }
     case "result":
-      if (S.shot) S.shot.resultT = (S.shot.resultT || 0) + dt;
+      if (S.shot) {
+        S.shot.resultT = (S.shot.resultT || 0) + dt;
+        if (S.shot.sim) stepBallSim(S.shot.sim, dt);
+      }
       S.timer -= dt;
       if (S.timer <= 0) {
         if (S.resultNext) { S.resultNext = false; hideMsg(); startCountdown(); }
@@ -961,21 +964,94 @@ function update(dt) {
   }
 }
 
-let flightDone = false;
 function finishFlight() {
   if (S.mode !== "flight") return;
-  if (S.shot && S.shot.outcome === "save" && !S.shot.saveBounce) {
-    let dir = Math.sign(S.shot.u - .5);
-    if (!dir) dir = S.keeper && S.keeper.dir ? S.keeper.dir : 1;
-    S.shot.saveBounce = {
-      dir,
-      side: L.goalW * lerp(.09, .18, S.shot.power),
-      lift: L.goalH * lerp(.2, .1, S.shot.power),
-    };
-  }
+  startBallSim();
   S.mode = "resolvePause";
   S.crowdBounce = 1;
   resolveShot();
+}
+
+/* After impact the ball becomes a small ballistic body: it deflects according
+   to the outcome, falls under gravity, bounces and rolls to rest. Nothing
+   freezes mid-air any more. */
+function startBallSim() {
+  const sh = S.shot;
+  const p = rawBallPosition(sh, sh.t);
+  const prev = rawBallPosition(sh, Math.max(0, sh.t - .05));
+  const vx = (p.x - prev.x) / (.05 * sh.dur);
+  const vy = (p.y - prev.y) / (.05 * sh.dur);
+  const r = p.r;
+  const sim = {
+    x: p.x, y: p.y, r, vx, vy, rot: 0, alpha: 1,
+    bounce: .45, ground: L.gy1 - r, float: false, fade: false, done: false,
+  };
+  switch (sh.outcome) {
+    case "goal":
+      // the net absorbs nearly everything; the ball slides down and settles inside
+      sim.vx *= .1;
+      sim.vy = Math.max(vy * .06, 0) + H * .04;
+      sim.bounce = .22;
+      break;
+    case "save": {
+      // parried by the keeper: away to the dive side, up a touch, then bounces clear
+      let dir = Math.sign(sh.u - .5) || (S.keeper && S.keeper.dir) || 1;
+      sim.vx = dir * L.goalW * lerp(.4, .75, sh.power);
+      sim.vy = -L.goalH * lerp(.55, .3, sh.power);
+      sim.ground = L.gy1 + (H - L.gy1) * .1 - r;
+      break;
+    }
+    case "post":
+      // pings back into play off the upright
+      sim.vx = -vx * .42;
+      sim.vy = vy * .2;
+      sim.ground = L.gy1 + (H - L.gy1) * .12 - r;
+      sim.bounce = .5;
+      break;
+    case "bar":
+      // slammed down off the crossbar, lands in front of the line
+      sim.vx = vx * .3;
+      sim.vy = Math.abs(vy) * .3 + H * .06;
+      sim.ground = L.gy1 + (H - L.gy1) * .09 - r;
+      sim.bounce = .5;
+      break;
+    case "wide":
+      // keeps travelling past the post and rolls away on the far grass
+      sim.ground = L.gy1 - r * .4;
+      sim.bounce = .35;
+      break;
+    case "over":
+      // sails into the stands: keeps climbing away from the camera and fades
+      sim.vy = Math.min(vy, -H * .1);
+      sim.float = true;
+      sim.fade = true;
+      sim.ground = Infinity;
+      break;
+  }
+  sh.sim = sim;
+}
+
+function stepBallSim(b, dt) {
+  if (b.done) return;
+  const g = H * (b.float ? .35 : 2.6) * clamp(b.r / L.ballR, .35, 1);
+  b.vy += g * dt;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  b.rot += b.vx * dt / Math.max(8, b.r);
+  if (b.fade) {
+    b.alpha = Math.max(0, b.alpha - dt * 1.15);
+    if (b.alpha === 0) b.done = true;
+    return;
+  }
+  if (b.y >= b.ground) {
+    b.y = b.ground;
+    if (Math.abs(b.vy) > H * .1) { b.vy = -b.vy * b.bounce; b.vx *= .78; }
+    else { // rolling out
+      b.vy = 0;
+      b.vx *= Math.pow(.1, dt);
+      if (Math.abs(b.vx) < 4) { b.vx = 0; b.done = true; }
+    }
+  }
 }
 
 function rawBallPosition(sh, t) {
@@ -991,41 +1067,8 @@ function rawBallPosition(sh, t) {
 function ballPos() {
   const sh = S.shot;
   if (!sh) return { x: L.ballX, y: L.ballY, r: L.ballR };
-  const p = rawBallPosition(sh, sh.t);
-  let { x, y, r } = p;
-
-  // Continue non-goal trajectories after impact so each result reads clearly.
-  const q = clamp((sh.resultT || 0) / .72, 0, 1);
-  if (q > 0 && sh.outcome === "goal") {
-    // The net absorbs the strike, then drops and rolls the ball forward. It
-    // never remains pinned to the exact impact pixel.
-    const side = Math.sign(sh.u - .5) || 1;
-    x += -side * L.goalW * .035 * Math.sin(q * Math.PI * 3) * (1 - q);
-    y += -Math.sin(Math.PI * q) * L.goalH * .055 + q * q * L.goalH * .43;
-    r = lerp(r, L.ballR * .72, q);
-  } else if (q > 0 && sh.outcome === "save" && sh.saveBounce) {
-    const bounce = 1 - Math.pow(1 - q, 2.2);
-    x += sh.saveBounce.dir * sh.saveBounce.side * bounce;
-    y += -Math.sin(Math.PI * q) * sh.saveBounce.lift + q * q * L.goalH * .72;
-    r = lerp(r, L.ballR * .76, q);
-  } else if (q > 0 && sh.outcome === "post") {
-    const inward = sh.u < .5 ? 1 : -1;
-    x += inward * L.goalW * .13 * (1 - Math.pow(1 - q, 2.5));
-    y += -Math.sin(q * Math.PI) * L.goalH * .15 + q * q * L.goalH * .35;
-    r = lerp(r, L.ballR * .64, q);
-  } else if (q > 0 && sh.outcome === "bar") {
-    x += (sh.tx < W / 2 ? 1 : -1) * L.goalW * .045 * q;
-    y += q * q * L.goalH * .43;
-    r = lerp(r, L.ballR * .62, q);
-  } else if (q > 0 && sh.outcome === "wide") {
-    x += (sh.tx < W / 2 ? -1 : 1) * L.goalW * .28 * q;
-    y -= L.goalH * .045 * q;
-    r *= 1 - q * .28;
-  } else if (q > 0 && sh.outcome === "over") {
-    y -= L.goalH * .38 * q;
-    r *= 1 - q * .34;
-  }
-  return { x, y, r };
+  if (sh.sim) return { x: sh.sim.x, y: sh.sim.y, r: sh.sim.r };
+  return rawBallPosition(sh, sh.t);
 }
 
 /* ================= drawing ================= */
@@ -1411,19 +1454,23 @@ function keeperVisual(k) {
   return { x, y, rot, pose, h, baseY };
 }
 
+function keeperSway() { return Math.sin(S.time * 1.45) * L.goalW * .012; }
+
+function keeperIdleSpriteState(sway) {
+  const ready = polishedKeeperFrames[0];
+  const scale = L.keeperH / (ready.naturalHeight || 452);
+  const dw = (ready.naturalWidth || 359) * scale, dh = (ready.naturalHeight || 452) * scale;
+  return { img: ready, x: W / 2 + sway - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false,
+    hands: [{ x: W / 2 + sway - dw * .43, y: L.keeperGroundY - dh * .54 }, { x: W / 2 + sway + dw * .43, y: L.keeperGroundY - dh * .54 }] };
+}
+
 function keeperSpriteState(k) {
   const h = L.keeperH;
   const ready = polishedKeeperFrames[0];
   // Every pose uses the ready sprite's pixels-per-body-height scale. Generated
   // pose bounds differ, but the keeper's body never shrinks during a jump.
   const scale = h / (ready.naturalHeight || 452);
-  if (!k || k.idle || k.t <= .11) {
-    const img = ready;
-    const dw = (img.naturalWidth || 359) * scale, dh = (img.naturalHeight || 452) * scale;
-    const sway = Math.sin(S.time * 1.45) * L.goalW * .012;
-    return { img, x: W / 2 + sway - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false,
-      hands: [{ x: W / 2 + sway - dw * .43, y: L.keeperGroundY - dh * .54 }, { x: W / 2 + sway + dw * .43, y: L.keeperGroundY - dh * .54 }] };
-  }
+  if (!k || k.idle || k.t <= .11) return keeperIdleSpriteState(keeperSway());
 
   const phase = clamp((k.t - .09) / .91, 0, 1);
   const e = 1 - Math.pow(1 - phase, 3);
@@ -1462,16 +1509,6 @@ function keeperDiveBlend(k) {
   return smoothstep(.11, .56, k.t);
 }
 
-function keeperSaveBlend(k) {
-  let blend = keeperDiveBlend(k);
-  if (S.mode === "result" && S.shot) {
-    // Release only the small ball-contact correction. The player's chosen
-    // landing target remains fixed, preventing a second sideways slide.
-    blend *= 1 - smoothstep(.1, .78, S.shot.resultT || 0);
-  }
-  return blend;
-}
-
 function translateKeeperState(state, dx, dy) {
   state.x += dx; state.y += dy;
   state.hands = state.hands.map((hand) => ({ x: hand.x + dx, y: hand.y + dy }));
@@ -1494,31 +1531,31 @@ function alignKeeperToDiveTarget(state, k) {
 function alignSavingKeeper(state, k) {
   if (!k || !k.saving || !S.shot || k.t <= .11) return state;
   // The shot never changes course. For a valid save, the keeper completes
-  // the dive at the ball's existing contact point instead.
+  // the dive at the ball's existing contact point instead, and stays there:
+  // unwinding this correction later would read as a backwards slide.
   const ball = rawBallPosition(S.shot, .82);
   const contact = state.contact || {
     x: (state.hands[0].x + state.hands[1].x) / 2,
     y: (state.hands[0].y + state.hands[1].y) / 2,
   };
-  const reach = keeperSaveBlend(k);
+  const reach = keeperDiveBlend(k);
   const dx = (ball.x - contact.x) * reach;
   const dy = (ball.y - contact.y) * reach;
   return translateKeeperState(state, dx, dy);
 }
 
-function keeperLandedSpriteState(k) {
+// Grounded pose placed where the airborne keeper actually came down, so the
+// handover happens in place instead of teleporting to the original target.
+function keeperLandedSpriteState(k, cx) {
   const ready = polishedKeeperFrames[0];
   const scale = L.keeperH / (ready.naturalHeight || 452);
-  const fallbackU = k && k.dir ? .5 + k.dir * .285 : .5;
-  const targetX = L.gx0 + (k && k.targetU != null ? k.targetU : fallbackU) * L.goalW;
   if (!k || k.dir === 0) {
     const dw = (ready.naturalWidth || 359) * scale, dh = (ready.naturalHeight || 452) * scale;
-    return { img: ready, x: targetX - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false };
+    return { img: ready, x: cx - dw / 2, y: L.keeperGroundY - dh, w: dw, h: dh, flip: false };
   }
   const img = polishedKeeperFrames[2];
   const dw = (img.naturalWidth || 555) * scale, dh = (img.naturalHeight || 268) * scale;
-  const leadFraction = k.dir > 0 ? .965 : .035;
-  return { img, x: targetX - dw * leadFraction, y: L.keeperGroundY - dh * .92, w: dw, h: dh, flip: k.dir < 0 };
+  return { img, x: cx - dw / 2, y: L.keeperGroundY - dh * .92, w: dw, h: dh, flip: k.dir < 0 };
 }
 
 function paintKeeperSprite(s, alpha = 1) {
@@ -1535,11 +1572,28 @@ function paintKeeperSprite(s, alpha = 1) {
 function drawKeeper() {
   const k = S.keeper;
   if (polishedKeeperFrames[0].complete && polishedKeeperFrames[0].naturalWidth) {
-    const s = keeperSpriteState(k);
+    let s = keeperSpriteState(k);
+    const launched = k && !k.idle && k.t > .11;
+    // Freeze the idle sway the instant he commits, so the launch starts from
+    // where he was actually standing rather than snapping back to centre.
+    if (launched && k.swayX == null) k.swayX = keeperSway();
+    const resultQ = launched && S.mode === "result" && S.shot ? (S.shot.resultT || 0) : 0;
+    let landing = 0;
+    if (resultQ > 0) {
+      // gravity brings the airborne keeper down to the turf...
+      const fall = smoothstep(.05, .48, resultQ);
+      s = translateKeeperState(s, 0, Math.max(0, (L.keeperGroundY - (s.y + s.h)) * fall));
+      // ...then the grounded pose takes over in place
+      landing = smoothstep(.34, .62, resultQ);
+    }
     shadow(s.x + s.w / 2, L.keeperGroundY + L.keeperH * .015, Math.max(s.w * .32, L.keeperH * .2));
-    const landing = S.mode === "result" && k && !k.idle ? smoothstep(.08, .62, S.shot ? S.shot.resultT || 0 : 0) : 0;
+    if (landing > 0) paintKeeperSprite(keeperLandedSpriteState(k, s.x + s.w / 2));
     if (landing < 1) paintKeeperSprite(s, 1 - landing);
-    if (landing > 0) paintKeeperSprite(keeperLandedSpriteState(k), landing);
+    // short crossfade out of the ready stance so the dive never pops
+    if (launched && landing === 0) {
+      const takeoff = smoothstep(.11, .3, k.t);
+      if (takeoff < 1) paintKeeperSprite(keeperIdleSpriteState(k.swayX), 1 - takeoff);
+    }
     return;
   }
   const isYou = S.shooter === "bot";
@@ -1581,37 +1635,50 @@ function drawShooterSprite() {
   const h = H * .5185;
   const scale = h / (frames[0].naturalHeight || 520);
   const start = shooterRunStart();
-  const plantX = L.ballX - L.ballR * 1.25;
   const groundY = L.ballY + L.ballR + H * .035;
-  let frame = 0, cx = start.x, bottom = start.y + h * .03;
+  // Every phase is anchored so the sprite never teleports between run,
+  // wind-up and follow-through. The wind-up keeps the plant boot behind the
+  // ball; the run decelerates exactly into that spot.
+  const strikeCx = L.ballX - (frames[2].naturalWidth || 441) * scale * .47;
+  const followCx = L.ballX - (frames[3].naturalWidth || 464) * scale * .22;
+  let frame = 0, cx = start.x, bottom = start.y + h * .03, flip = false;
 
   if (S.mode === "kickAnim") {
     const t = S.kickPose;
-    if (t < .58) {
+    const RUN_END = .62;
+    if (t < RUN_END) {
       frame = 1;
-      const run = t / .58, e = run * run * (3 - 2 * run);
-      cx = lerp(start.x, plantX - L.ballR * 1.8, e);
-      bottom = lerp(start.y, groundY, e) - Math.abs(Math.sin(run * Math.PI * 3)) * h * .018;
+      const run = t / RUN_END, e = run * run * (3 - 2 * run);
+      // Mirror the stride frame on alternate steps: a two-frame run cycle
+      // instead of one pose skating across the grass.
+      const stride = run * 3;
+      flip = (stride | 0) % 2 === 1;
+      cx = lerp(start.x, strikeCx, e);
+      bottom = lerp(start.y, groundY, e) - Math.abs(Math.sin(stride * Math.PI)) * h * .02;
     } else {
-      frame = 2;
-      const img = frames[frame];
-      const dw = img.naturalWidth * scale;
-      // Shift the contact frame left so the plant boot stays behind the ball.
-      cx = L.ballX - dw * .47;
-      bottom = groundY;
+      // plant and wind up; the swing through to the follow-through frame
+      // lands exactly on the moment the ball leaves the boot
+      frame = 2; cx = strikeCx; bottom = groundY;
     }
   } else if ((S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause") && S.shot) {
     frame = 3;
-    const img = frames[frame];
-    const dw = img.naturalWidth * scale;
-    cx = L.ballX - dw * .22;
+    const settle = clamp((S.followT || 0) / .2, 0, 1);
+    cx = lerp(strikeCx, followCx, 1 - Math.pow(1 - settle, 2));
     bottom = groundY;
+  } else {
+    bottom += Math.sin(S.time * 1.7) * h * .004; // settling breath at the mark
   }
 
   const img = frames[frame];
   const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
   shadow(cx, bottom + h * .015, Math.max(h * .16, dw * .22));
-  ctx.drawImage(img, cx - dw / 2, bottom - dh, dw, dh);
+  if (flip) {
+    ctx.save();
+    ctx.translate(cx, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, -dw / 2, bottom - dh, dw, dh);
+    ctx.restore();
+  } else ctx.drawImage(img, cx - dw / 2, bottom - dh, dw, dh);
 }
 
 function drawShooter() {
@@ -1678,11 +1745,15 @@ function rounded(x, y, w, h, r) {
 
 function drawBall(x, y, r) {
   ctx.save();
+  const sim = S.shot && S.shot.sim;
+  const ballAlpha = sim ? sim.alpha : 1;
+  if (ballAlpha <= 0) { ctx.restore(); return; }
   // The shadow stays on the pitch while the ball rises toward the goal.
   const flying = S.shot && (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
-  const groundY = flying ? lerp(L.ballY + L.ballR, L.gy1, 1 - Math.pow(1 - S.shot.t, 1.6)) : y + r * 1.1;
+  const groundY = sim ? (Number.isFinite(sim.ground) ? sim.ground + r : L.gy1)
+    : flying ? lerp(L.ballY + L.ballR, L.gy1, 1 - Math.pow(1 - S.shot.t, 1.6)) : y + r * 1.1;
   const lift = Math.max(0, groundY - y);
-  ctx.globalAlpha = clamp(.34 - lift / Math.max(H, 1) * .36, .08, .34);
+  ctx.globalAlpha = clamp(.34 - lift / Math.max(H, 1) * .36, .08, .34) * ballAlpha;
   ctx.fillStyle = "#07150a";
   ctx.beginPath();
   ctx.ellipse(x, Math.min(groundY, H), r * (1.05 + lift / H), r * .28, 0, 0, Math.PI * 2);
@@ -1690,8 +1761,9 @@ function drawBall(x, y, r) {
   ctx.globalAlpha = 1;
 
   if (ballArtwork.complete && ballArtwork.naturalWidth) {
+    ctx.globalAlpha = ballAlpha;
     ctx.translate(x, y);
-    ctx.rotate(S.shot ? S.shot.t * 7.5 : 0);
+    ctx.rotate(S.shot ? S.shot.t * 7.5 + (sim ? sim.rot : 0) : 0);
     ctx.drawImage(ballArtwork, -r, -r, r * 2, r * 2);
     ctx.restore();
     return;
