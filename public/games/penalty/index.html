@@ -392,7 +392,7 @@ function resize() {
   L.ballR = clamp(H * 0.026, 12, 27);
   L.ballX = W / 2;
   L.ballY = H * 0.86;
-  L.keeperH = L.goalH * 0.64;
+  L.keeperH = L.goalH * 0.66;
   // Compensate for transparent padding beneath the generated keeper sprites.
   L.keeperGroundY = L.gy1 + H * .012;
 
@@ -487,7 +487,7 @@ const S = {
   playerDive: null,   // player's chosen dive when goalkeeping
   botKickAt: 0,       // time until bot kicks
   kickPose: 0,        // shooter leg-swing 0..1
-  netWobble: 0, postFlash: 0, shakeT: 0,
+  postFlash: 0, shakeT: 0,
   drag: null,         // {x0,y0,t0,x,y}
   confetti: [], fireworks: [], trail: [], turf: [],
   turfBurstDone: false,
@@ -576,17 +576,24 @@ function startPhase() {
 }
 
 // zones: col 0/1/2, high bool. Returns save probability for keeper guess vs shot.
-function saveChance(shotCol, shotHigh, dvCol, dvHigh, power, edge) {
+function saveChance(shotCol, shotHigh, dvCol, dvHigh, power, u, v) {
   if (dvCol !== shotCol) return 0;
   // A low block cannot catch a high shot (or vice versa). Returning early is
   // important: the minimum probability clamp below must never create an
   // impossible save that the animation then has to fake.
   if (dvHigh !== shotHigh) return 0;
-  let p = shotCol === ZONES.CENTER ? 0.95 : 0.9;
-  if (power > 0.82) p -= 0.35;       // rockets are hard to hold
-  if (edge) p -= 0.25;               // right in the corner
-  if (power < 0.35) p = Math.max(p, 0.97); // soft shots at the keeper get eaten
-  return clamp(p, 0.05, 0.98);
+  let p = shotCol === ZONES.CENTER ? 0.92 : 0.82;
+  if (power > 0.82) p -= 0.3;       // rockets are hard to hold
+  if (power < 0.35) p = Math.max(p, 0.95); // soft shots at the keeper get eaten
+  // A ball hit straight at the keeper is very saveable; one tucked against a
+  // post or under the bar is nearly unstoppable even when he guesses right
+  // (~8% there). It fades continuously, so there are no impossible corner saves.
+  const postClear = Math.min(clamp(u, 0, 1), 1 - clamp(u, 0, 1)); // 0 at a post
+  const barClear = 1 - clamp(v, 0, 1);                            // 0 under the bar
+  let reach = smoothstep(0, 0.36, postClear);
+  reach *= lerp(0.5, 1, smoothstep(0, 0.14, barClear));
+  p *= lerp(0.08, 1, reach);
+  return clamp(p, 0, 0.94);
 }
 
 // The whole frame is selectable. Physical difficulty is represented by save
@@ -620,7 +627,7 @@ function playerSaveChance(sh, dive) {
   // Even a perfectly anticipated shot near a post or the crossbar is much
   // harder to stop. This fades continuously; there is no zone boundary.
   const woodworkClearance = Math.min(sh.u, 1 - sh.u, 1 - sh.v);
-  const frameFactor = lerp(.22, 1, smoothstep(0, .18, woodworkClearance));
+  const frameFactor = lerp(.1, 1, smoothstep(0, .2, woodworkClearance));
   return clamp(proximity * powerFactor * frameFactor, 0, .97);
 }
 
@@ -668,18 +675,30 @@ function releaseShot(drag) {
   const col = u < 0.36 ? ZONES.LEFT : u > 0.64 ? ZONES.RIGHT : ZONES.CENTER;
   const high = v > 0.52;
 
-  // keeper commits at the moment of the kick: mostly random, sometimes a read
+  // The keeper commits as the ball is struck by guessing a side and height at
+  // random. It never reads where you actually aim: its guess is completely
+  // independent of your shot. A wrong guess (different column or height) can
+  // never save.
   let kCol, kHigh;
-  if (Math.random() < 0.22 && outcome === "pending") { kCol = col; kHigh = high; }
-  else {
+  {
     const r = Math.random();
     kCol = r < 0.38 ? ZONES.LEFT : r < 0.76 ? ZONES.RIGHT : ZONES.CENTER;
     kHigh = Math.random() < (kCol === ZONES.CENTER ? 0.2 : 0.4);
   }
 
   if (outcome === "pending") {
-    const edge = u < 0.12 || u > 0.88;
-    outcome = Math.random() < saveChance(col, high, kCol, kHigh, power, edge) ? "save" : "goal";
+    outcome = Math.random() < saveChance(col, high, kCol, kHigh, power, u, v) ? "save" : "goal";
+  }
+
+  // On a goal the keeper must be beaten cleanly. If its guess would land on the
+  // ball, send it the other way so it never looks like it caught a goal.
+  if (outcome === "goal") {
+    const guessU = kCol === ZONES.LEFT ? .22 : kCol === ZONES.RIGHT ? .78 : .5;
+    const guessV = kHigh ? .7 : .26;
+    if (Math.abs(guessU - clamp(u, 0, 1)) < .2 && Math.abs(guessV - clamp(v, 0, 1)) < .28) {
+      kCol = clamp(u, 0, 1) < .5 ? ZONES.RIGHT : ZONES.LEFT; // dive away from the ball
+      if (Math.random() < .6) kHigh = !high;
+    }
   }
 
   const uu = clamp(u, -0.25, 1.25);
@@ -687,9 +706,9 @@ function releaseShot(drag) {
   const ty = L.gy1 - clamp(v, 0, 1.35) * L.goalH;
   S.shot = {
     sx: L.ballX, sy: L.ballY, tx, ty, u: uu, v, t: 0,
-    dur: lerp(0.72, 0.42, power), power, outcome,
+    dur: lerp(0.4, 0.19, power), power, outcome,
     zoneCol: col, zoneHigh: high,
-    arc: lerp(H * 0.02, H * 0.09, clamp(v, 0, 1)) * (1 - power * 0.4),
+    arc: lerp(H * 0.015, H * 0.06, clamp(v, 0, 1)) * (1 - power * 0.72),
   };
   S.keeper = {
     dir: kCol === ZONES.CENTER ? 0 : kCol === ZONES.LEFT ? -1 : 1,
@@ -705,6 +724,9 @@ function releaseShot(drag) {
 }
 
 /* ---- bot shoots ---- */
+// The bot picks its side and height purely at random, before and independent of
+// where you choose to dive: it cannot see your pick, so it never aims away from
+// you on purpose. Whether you save is then resolved fairly against your dive.
 function botKick() {
   const r = Math.random();
   let col = r < 0.36 ? ZONES.LEFT : r < 0.72 ? ZONES.RIGHT : ZONES.CENTER;
@@ -716,10 +738,10 @@ function botKick() {
 
   const fate = Math.random();
   let outcome;
-  if (fate < 0.1) { // blaze wide or over
+  if (fate < 0.07) { // blaze wide or over
     if (Math.random() < 0.55) { u = col === ZONES.RIGHT ? rand(1.08, 1.2) : rand(-0.2, -0.08); outcome = "wide"; }
     else { v = rand(1.15, 1.4); u = rand(0.2, 0.8); outcome = "over"; }
-  } else if (fate < 0.18) { // clatter the post
+  } else if (fate < 0.13) { // clatter the post
     u = Math.random() < 0.5 ? 0 : 1;
     outcome = "post";
     col = u < 0.5 ? ZONES.LEFT : ZONES.RIGHT;
@@ -728,9 +750,9 @@ function botKick() {
   const uu = clamp(u, -0.25, 1.25);
   S.shot = {
     sx: L.ballX, sy: L.ballY, tx: L.gx0 + uu * L.goalW, ty: L.gy1 - clamp(v, 0, 1.35) * L.goalH,
-    u: uu, v, t: 0, dur: lerp(0.72, 0.43, power), power, outcome,
+    u: uu, v, t: 0, dur: lerp(0.4, 0.2, power), power, outcome,
     zoneCol: col, zoneHigh: high,
-    arc: lerp(H * 0.02, H * 0.09, clamp(v, 0, 1)) * (1 - power * 0.4),
+    arc: lerp(H * 0.015, H * 0.06, clamp(v, 0, 1)) * (1 - power * 0.72),
   };
   S.mode = "kickAnim";
   S.kickPose = 0;
@@ -763,14 +785,13 @@ function resolveShot() {
   (isYou ? S.kicksYou : S.kicksBot).push(goal);
 
   if (o === "goal") {
-    S.netWobble = 1;
     audio.sNet();
-    if (isYou) { setMsg("GOAL!", "goal"); audio.sCheer(); burstConfetti(S.shot.tx, S.shot.ty, 40); }
+    if (isYou) { setMsg("GOAL!", "goal"); audio.sCheer(); }
     else { setMsg("GOAL", "bad", "the bot scores"); audio.sGroan(); }
   } else if (o === "save") {
     audio.sSave();
-    if (isYou) { setMsg("SAVED!", "bad", "the keeper read it"); audio.sGroan(); }
-    else { setMsg("SAVED!", "goal", "what a stop!"); audio.sCheer(); burstConfetti(S.shot.tx, S.shot.ty, 26); }
+    if (isYou) { setMsg("SAVED!", "bad", "the keeper guessed right"); audio.sGroan(); }
+    else { setMsg("SAVED!", "goal", "what a stop!"); audio.sCheer(); }
   } else if (o === "post" || o === "bar") {
     S.postFlash = 1; S.shakeT = 0.35;
     audio.sPost();
@@ -868,7 +889,6 @@ function burstTurf() {
 /* ================= update ================= */
 function update(dt) {
   S.time += dt;
-  if (S.netWobble > 0) S.netWobble = Math.max(0, S.netWobble - dt * 1.4);
   if (S.postFlash > 0) S.postFlash = Math.max(0, S.postFlash - dt * 2.2);
   if (S.shakeT > 0) S.shakeT = Math.max(0, S.shakeT - dt);
   if (S.crowdBounce > 0) S.crowdBounce = Math.max(0, S.crowdBounce - dt * 0.8);
@@ -988,17 +1008,20 @@ function startBallSim() {
   };
   switch (sh.outcome) {
     case "goal":
-      // the net absorbs nearly everything; the ball slides down and settles inside
-      sim.vx *= .1;
-      sim.vy = Math.max(vy * .06, 0) + H * .04;
-      sim.bounce = .22;
+      // punches into the net carrying its pace, then the mesh catches it and it
+      // drops. Keeping more of the strike velocity makes it read as a hard hit.
+      sim.vx *= .32;
+      sim.vy = Math.max(vy * .2, 0) + H * .05;
+      sim.bounce = .26;
       break;
     case "save": {
-      // parried by the keeper: away to the dive side, up a touch, then bounces clear
+      // the keeper pushes it clear: strongly out to the dive side and down onto
+      // the pitch, never dribbling back into the goal.
       let dir = Math.sign(sh.u - .5) || (S.keeper && S.keeper.dir) || 1;
-      sim.vx = dir * L.goalW * lerp(.4, .75, sh.power);
-      sim.vy = -L.goalH * lerp(.55, .3, sh.power);
-      sim.ground = L.gy1 + (H - L.gy1) * .1 - r;
+      sim.vx = dir * L.goalW * lerp(.75, 1.2, sh.power);
+      sim.vy = -L.goalH * lerp(.32, .16, sh.power);
+      sim.ground = L.gy1 + (H - L.gy1) * .16 - r;
+      sim.bounce = .5;
       break;
     }
     case "post":
@@ -1055,11 +1078,16 @@ function stepBallSim(b, dt) {
 }
 
 function rawBallPosition(sh, t) {
-  const e = 1 - Math.pow(1 - t, 1.6); // ease-out: fast off the boot
+  // Driven shots keep full pace right into the net (near-linear); only soft
+  // shots ease off a little. This is what kills the floaty "balloon" look.
+  const ease = lerp(1.25, 1.0, sh.power);
+  const e = 1 - Math.pow(1 - t, ease);
   return {
     x: lerp(sh.sx, sh.tx, e),
     y: lerp(sh.sy, sh.ty, e) - Math.sin(Math.PI * t) * sh.arc,
-    r: lerp(L.ballR, L.ballR * .42, e),
+    // Only a gentle perspective shrink: at the goal the ball still reads as a
+    // real ball against the posts, not a distant dot.
+    r: lerp(L.ballR, L.ballR * .64, e),
   };
 }
 
@@ -1120,18 +1148,22 @@ function draw() {
 
   if (!paintedStadium) drawGoal();
   drawKeeperReachOverlay();
-  const ballCaught = S.shot && S.shot.outcome === "save" && S.shot.t >= .8 &&
-    (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
-  if (ballCaught) {
+  const movingBall = S.shot && (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
+  const ballCaught = S.shot && S.shot.outcome === "save" && S.shot.t >= .8 && movingBall;
+  // A ball resting in the net or flying into the stands sits *behind* the
+  // keeper and the striker. Those come to rest after impact (sim active), so
+  // draw them in the back layer; everything else stays in the foreground.
+  const ballBehind = movingBall && !ballCaught && S.shot.sim &&
+    (S.shot.outcome === "goal" || S.shot.outcome === "over");
+  if (ballCaught || ballBehind) {
     const p = ballPos();
     drawBall(p.x, p.y, p.r);
   }
   drawKeeper();
 
   // Before contact the ball sits behind the striker's boot. Once struck, it
-  // moves to the foreground flight layer.
-  const movingBall = S.shot && (S.mode === "flight" || S.mode === "result" || S.mode === "resolvePause");
-  if (!ballCaught && !movingBall) drawBall(L.ballX, L.ballY, L.ballR);
+  // moves to the foreground flight layer (unless it ended up behind, above).
+  if (!movingBall) drawBall(L.ballX, L.ballY, L.ballR);
 
   // shooter (you at the spot, or the bot player)
   if (S.mode !== "end") drawShooter();
@@ -1153,8 +1185,8 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // ball
-  if (!ballCaught && movingBall) {
+  // ball (foreground: in flight, or a rebound/parry in front of the goal)
+  if (movingBall && !ballCaught && !ballBehind) {
     const p = ballPos();
     drawBall(p.x, p.y, p.r);
   }
@@ -1228,7 +1260,7 @@ function drawGoal() {
   mouthShadow.addColorStop(0, "rgba(1,10,7,.27)"); mouthShadow.addColorStop(1, "rgba(1,10,7,0)");
   ctx.fillStyle = mouthShadow; ctx.fillRect(gx0 - L.goalW * .08, gy0, L.goalW * 1.16, L.goalH * 1.12);
   // net
-  const wob = Math.sin(S.time * 26) * S.netWobble * L.goalH * 0.06;
+  const wob = 0;
   const depth = L.goalH * 0.22;
   const cells = 18;
   // back plane of the net
@@ -1569,6 +1601,20 @@ function paintKeeperSprite(s, alpha = 1) {
   ctx.restore();
 }
 
+// Same, but rotated about the sprite's base, for the roll as he pushes up.
+function paintKeeperSpriteRot(s, alpha, angle) {
+  if (!angle) return paintKeeperSprite(s, alpha);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const px = s.x + s.w / 2, py = s.y + s.h;
+  ctx.translate(px, py); ctx.rotate(angle); ctx.translate(-px, -py);
+  if (s.flip) {
+    ctx.translate(s.x + s.w, s.y); ctx.scale(-1, 1);
+    ctx.drawImage(s.img, 0, 0, s.w, s.h);
+  } else ctx.drawImage(s.img, s.x, s.y, s.w, s.h);
+  ctx.restore();
+}
+
 function drawKeeper() {
   const k = S.keeper;
   if (polishedKeeperFrames[0].complete && polishedKeeperFrames[0].naturalWidth) {
@@ -1586,9 +1632,22 @@ function drawKeeper() {
       // ...then the grounded pose takes over in place
       landing = smoothstep(.34, .62, resultQ);
     }
-    shadow(s.x + s.w / 2, L.keeperGroundY + L.keeperH * .015, Math.max(s.w * .32, L.keeperH * .2));
-    if (landing > 0) paintKeeperSprite(keeperLandedSpriteState(k, s.x + s.w / 2));
-    if (landing < 1) paintKeeperSprite(s, 1 - landing);
+    const groundedX = s.x + s.w / 2;
+    shadow(groundedX, L.keeperGroundY + L.keeperH * .015, Math.max(s.w * .32, L.keeperH * .2));
+    // After a side dive he lands, rolls, and pushes back up onto his feet,
+    // drifting toward the middle so the next reset isn't a jump.
+    const getup = landing >= 1 && k.dir !== 0 ? smoothstep(.72, 1.4, resultQ) : 0;
+    if (landing < 1) paintKeeperSprite(s, 1 - landing);       // airborne, descending
+    if (landing > 0 && getup < 1) {
+      const roll = k.dir * lerp(0, .22, smoothstep(0, .5, getup)) * (1 - getup);
+      paintKeeperSpriteRot(keeperLandedSpriteState(k, groundedX), landing * (1 - getup), roll);
+    }
+    if (getup > 0) {
+      const standCx = lerp(groundedX, W / 2, getup * .6);
+      const ready = keeperLandedSpriteState({ dir: 0 }, standCx);
+      ready.y -= Math.sin(Math.PI * getup) * L.keeperH * .05; // small push up
+      paintKeeperSprite(ready, getup);
+    }
     // short crossfade out of the ready stance so the dive never pops
     if (launched && landing === 0) {
       const takeoff = smoothstep(.11, .3, k.t);
@@ -1630,9 +1689,9 @@ function shooterRunStart() {
 
 function drawShooterSprite() {
   const frames = S.shooter === "bot" ? polishedPlayerRedFrames : polishedPlayerBlueFrames;
-  // Match the thumbnail's foreground perspective: the striker occupies about
-  // 60% of the viewport height rather than reading as a miniature field figure.
-  const h = H * .5185;
+  // Foreground perspective, but kept small enough that his head stays clear of
+  // the goal mouth so it never blocks you picking a dive spot.
+  const h = H * .43;
   const scale = h / (frames[0].naturalHeight || 520);
   const start = shooterRunStart();
   const groundY = L.ballY + L.ballR + H * .035;
@@ -1641,7 +1700,7 @@ function drawShooterSprite() {
   // ball; the run decelerates exactly into that spot.
   const strikeCx = L.ballX - (frames[2].naturalWidth || 441) * scale * .47;
   const followCx = L.ballX - (frames[3].naturalWidth || 464) * scale * .22;
-  let frame = 0, cx = start.x, bottom = start.y + h * .03, flip = false;
+  let frame = 0, cx = start.x, bottom = start.y + h * .03, rot = 0;
 
   if (S.mode === "kickAnim") {
     const t = S.kickPose;
@@ -1649,12 +1708,12 @@ function drawShooterSprite() {
     if (t < RUN_END) {
       frame = 1;
       const run = t / RUN_END, e = run * run * (3 - 2 * run);
-      // Mirror the stride frame on alternate steps: a two-frame run cycle
-      // instead of one pose skating across the grass.
-      const stride = run * 3;
-      flip = (stride | 0) % 2 === 1;
       cx = lerp(start.x, strikeCx, e);
-      bottom = lerp(start.y, groundY, e) - Math.abs(Math.sin(stride * Math.PI)) * h * .02;
+      // A running rhythm from the single run frame: bob up on each stride and
+      // rock the torso a touch. (Mirroring the whole sprite read as a twitch.)
+      const stride = run * 4 * Math.PI;    // ~2 strides across the run-up
+      bottom = lerp(start.y, groundY, e) - Math.abs(Math.sin(stride)) * h * .03;
+      rot = Math.sin(stride) * 0.03;
     } else {
       // plant and wind up; the swing through to the follow-through frame
       // lands exactly on the moment the ball leaves the boot
@@ -1672,11 +1731,10 @@ function drawShooterSprite() {
   const img = frames[frame];
   const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
   shadow(cx, bottom + h * .015, Math.max(h * .16, dw * .22));
-  if (flip) {
+  if (rot) {
     ctx.save();
-    ctx.translate(cx, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(img, -dw / 2, bottom - dh, dw, dh);
+    ctx.translate(cx, bottom); ctx.rotate(rot);
+    ctx.drawImage(img, -dw / 2, -dh, dw, dh);
     ctx.restore();
   } else ctx.drawImage(img, cx - dw / 2, bottom - dh, dw, dh);
 }
