@@ -351,9 +351,17 @@
     const dx=puck.x-p.x,dy=puck.y-p.y,min=puck.r+p.r,release=min+p.r*.85,ds=dx*dx+dy*dy;
     if(ds>=min*min){if(!p.contactArmed&&ds>=release*release)p.contactArmed=true;return;}
     const dist=Math.sqrt(ds)||.001,nx=dx/dist,ny=dy/dist,over=min-dist;
-    puck.x+=nx*(over+.4);puck.y+=ny*(over+.4);
+    const rvx=puck.vx-p.vx,rvy=puck.vy-p.vy,into=rvx*nx+rvy*ny,tangentX=rvx-into*nx,tangentY=rvy-into*ny;
+    const separation = p.contactArmed ? .4 : 1.8;
+    puck.x+=nx*(over+separation);puck.y+=ny*(over+separation);
     // Keep resolving overlap, but apply only one physical impulse per contact.
-    if(!p.contactArmed)return;
+    // While the contact is disarmed, bleed off sideways motion so the puck
+    // does not skate around the paddle rim in a tight circle.
+    if(!p.contactArmed){
+      puck.vx-=tangentX*.18;puck.vy-=tangentY*.18;
+      if(into<0){puck.vx-=into*nx;puck.vy-=into*ny;}
+      return;
+    }
     const pinchedLeft=p.x<min+8&&puck.x<p.x,pinchedRight=p.x>W-min-8&&puck.x>p.x;
     if(pinchedLeft||pinchedRight){
       const side=pinchedLeft?1:-1,vertical=puck.y<=p.y?-1:1,wallX=pinchedLeft?puck.r:W-puck.r;
@@ -363,13 +371,13 @@
       if(p.hitCooldown<=0){burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',7,250);tone(p===player?310:260,.055,'square',.05);}
       p.hitCooldown=.075;p.contactArmed=false;return;
     }
-    const rvx=puck.vx-p.vx,rvy=puck.vy-p.vy,into=rvx*nx+rvy*ny;
     if(into<0){
       // Only the paddle's velocity toward the puck adds shot power. A fast,
       // deliberate strike can now exceed the old fixed puck-speed ceiling.
       const isBot=p===bot,d=isBot?difficulty[mode]:null,impactSpeed=Math.max(0,p.vx*nx+p.vy*ny);
       const power=clamp(Math.max(impactSpeed/PLAYER_MAX*(isBot?d.shot:1),isBot&&botStriking?d.minShot:0),0,1);
       puck.vx-=1.72*into*nx;puck.vy-=1.72*into*ny;
+      const spinKill=.12+power*.08;puck.vx-=tangentX*spinKill;puck.vy-=tangentY*spinKill;
       const transfer=.22+power*(isBot?.55:.38);puck.vx+=p.vx*transfer;puck.vy+=p.vy*transfer;
       const shotLimit=isBot?d.shotSpeed:PLAYER_MAX_PUCK_SPEED;
       const rawSpeed=hypot(puck.vx,puck.vy),boostedSpeed=390+power*(shotLimit-390);
