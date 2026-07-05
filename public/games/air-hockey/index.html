@@ -128,7 +128,7 @@
   let fxW = 0, fxH = 0;
   const W = 600, H = 900, CENTER = H / 2, GOAL_W = 230, GOAL_L = (W - GOAL_W) / 2;
   const PAD = 24; // extra canvas space above/below the field so the goal slots can cut outward
-  const PUCK_R = 16, PADDLE_R = 38, PLAYER_MAX = 1050, MAX_PUCK_SPEED = 1450, WIN_SCORE = 10;
+  const PUCK_R = 16, PADDLE_R = 38, PLAYER_MAX = 1050, PLAYER_MAX_PUCK_SPEED = 1450, MAX_PUCK_SPEED = 1700, WIN_SCORE = 10;
   const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
   const rand = (a,b) => a + Math.random() * (b-a);
   const lerp = (a,b,t) => a + (b-a)*t;
@@ -138,20 +138,20 @@
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const difficulty = {
-    easy:    { label:'Easy', speed:350, accel:850,  reaction:.34, error:68, predict:.25, attack:.15, home:116 },
-    medium:  { label:'Medium', speed:540, accel:1350, reaction:.19, error:30, predict:.68, attack:.62, home:134 },
-    hard:    { label:'Hard', speed:700, accel:1750, reaction:.12, error:13, predict:.90, attack:.85, home:146 },
-    extreme: { label:'Extremely Hard',speed:850, accel:2150, reaction:.075,error:5,  predict:1,   attack:.95, home:156 }
+    easy:    { label:'Easy', speed:400,  accel:1100, reaction:.28,  error:52, predict:.42, attack:.42, home:124, strike:1.20, shot:1.00, minShot:.28, shotSpeed:1250 },
+    medium:  { label:'Medium', speed:650,  accel:1900, reaction:.13,  error:18, predict:.80, attack:.82, home:140, strike:1.42, shot:1.20, minShot:.55, shotSpeed:1450 },
+    hard:    { label:'Hard', speed:840,  accel:2700, reaction:.065, error:6,  predict:.96, attack:.97, home:150, strike:1.62, shot:1.45, minShot:.72, shotSpeed:1580 },
+    extreme: { label:'Extremely Hard',speed:1050,accel:3800, reaction:.032, error:1,  predict:1,   attack:1,   home:162, strike:1.80, shot:1.70, minShot:.90, shotSpeed:1700 }
   };
 
   let state = 'menu', previousState = 'menu', raf = 0, lastTime = 0;
   let playerScore = 0, botScore = 0, mode = 'medium', nextServe = -1;
   let countdown = 0, scoreLabel = '', shake = 0, goalFlash = 0, scorePulse = 0, endDelay = 0, pendingWinner = false;
   let musicOn = true, sfxOn = true, pointerActive = false, pointerX = 0, pointerY = 0, locked = false;
-  let botThink = 0, botAimX = W/2, botTactic = 'defend', botTacticTime = 0, stuckTime = 0;
+  let botThink = 0, botAimX = W/2, botTactic = 'defend', botTacticTime = 0, botStriking = false, stuckTime = 0;
   const puck = {x:W/2,y:H/2,vx:0,vy:0,r:PUCK_R};
-  const player = {x:W/2,y:H-140,vx:0,vy:0,tx:W/2,ty:H-140,r:PADDLE_R,hitCooldown:0};
-  const bot = {x:W/2,y:140,vx:0,vy:0,tx:W/2,ty:140,r:PADDLE_R,hitCooldown:0};
+  const player = {x:W/2,y:H-140,vx:0,vy:0,tx:W/2,ty:H-140,r:PADDLE_R,hitCooldown:0,contactArmed:true};
+  const bot = {x:W/2,y:140,vx:0,vy:0,tx:W/2,ty:140,r:PADDLE_R,hitCooldown:0,contactArmed:true};
   const trail = Array.from({length:18},()=>({x:W/2,y:H/2,a:0}));
   let trailHead = 0;
   const particles = [], fireworks = [];
@@ -204,8 +204,8 @@
     puck.x=W/2;puck.y=H/2;puck.vx=0;puck.vy=0;
     player.x=player.tx=W/2;player.y=player.ty=H-140;player.vx=player.vy=0;
     bot.x=bot.tx=W/2;bot.y=bot.ty=140;bot.vx=bot.vy=0;
-    player.hitCooldown=bot.hitCooldown=0;
-    trail.forEach(p=>{p.x=puck.x;p.y=puck.y;p.a=0;});botThink=0;botTactic='defend';botTacticTime=0;stuckTime=0;
+    player.hitCooldown=bot.hitCooldown=0;player.contactArmed=bot.contactArmed=true;
+    trail.forEach(p=>{p.x=puck.x;p.y=puck.y;p.a=0;});botThink=0;botTactic='defend';botTacticTime=0;botStriking=false;stuckTime=0;
   }
   function fitCanvas(){
     const stage=$('stage'), cs=getComputedStyle(stage);
@@ -249,73 +249,90 @@
     resetPositions();beginCountdown(scoreLabel);
   }
 
+  function reflectedPuckX(x){
+    const min=PUCK_R,max=W-PUCK_R,span=max-min;
+    x=((x-min)%(span*2)+span*2)%(span*2);
+    return x>span?max-(x-span):min+x;
+  }
+  function predictPuckAfter(t){return{x:reflectedPuckX(puck.x+puck.vx*t),y:puck.y+puck.vy*t};}
   function predictAtY(targetY,strong){
     if(Math.abs(puck.vy)<20)return puck.x;
     const t=(targetY-puck.y)/puck.vy;if(t<=0)return puck.x;
     let x=puck.x+puck.vx*t*strong;
-    if(strong>.9){ const span=W-2*PUCK_R; x=((x-PUCK_R)%(span*2)+span*2)%(span*2);if(x>span)x=span*2-x;x+=PUCK_R; }
+    if(strong>.65)x=reflectedPuckX(x);
     return clamp(x,PADDLE_R,W-PADDLE_R);
   }
   function updateBot(dt){
     const d=difficulty[mode];botThink-=dt;botTacticTime-=dt;
+    // After a hit, retreat until the puck has clearly separated. This prevents
+    // the faster bot from catching and striking the same contact repeatedly.
+    if(!bot.contactArmed){botStriking=false;botTactic='recover';bot.tx=bot.x;bot.ty=d.home;moveBotPaddle(d,dt);return;}
     if(botThink<=0){
       botThink=d.reaction*rand(.9,1.12);
-      const inBot=puck.y<CENTER,approaching=puck.vy<-55,puckSpeed=hypot(puck.vx,puck.vy);
+      const inBot=puck.y<CENTER,approaching=puck.vy<-80,puckSpeed=hypot(puck.vx,puck.vy),gap=PADDLE_R+PUCK_R;
       const puckBehind=inBot&&puck.y<bot.y-6;
+      const attackable=inBot&&puck.y>bot.y-gap*.25&&puckSpeed<MAX_PUCK_SPEED*.92;
+      botStriking=false;
       if(puckBehind){if(botTactic!=='clear'){botTactic='clear';botTacticTime=.5;}}
-      else if(botTactic==='clear'){botTactic='defend';botTacticTime=.3;}
+      else if(approaching&&puck.y<CENTER+110){botTactic='intercept';botTacticTime=.28;}
+      else if(attackable&&(botTactic==='attack'||Math.random()<d.attack)){botTactic='attack';botTacticTime=.42;}
+      else if(botTactic==='clear'){botTactic='defend';botTacticTime=.2;}
       else if(botTacticTime<=0){
-        if(approaching&&puck.y<CENTER+100){botTactic='intercept';botTacticTime=rand(.32,.55);}
-        else if(inBot&&puck.vy>-100&&puckSpeed<930&&Math.random()<d.attack){botTactic='attack';botTacticTime=rand(.4,.65);}
-        else{botTactic='defend';botTacticTime=rand(.42,.72);}
+        botTactic='defend';botTacticTime=rand(.28,.48);
       }
       if((botTactic==='intercept'&&!approaching)||(botTactic==='attack'&&!inBot)){botTactic='defend';botTacticTime=.35;}
 
       let targetX=W/2,targetY=d.home,retarget=.7;
-      const gap=PADDLE_R+PUCK_R;
       if(botTactic==='clear'){
-        retarget=.85;botThink=Math.min(botThink,.09);
-        if(bot.y<=puck.y-gap*.55){
-          targetX=puck.x+rand(-4,4);targetY=puck.y+46;
+        const lead=clamp(hypot(puck.x-bot.x,puck.y-bot.y)/(d.speed*d.strike+puckSpeed*.3),.03,.18),future=predictPuckAfter(lead);
+        retarget=.95;botThink=Math.min(botThink,.045);
+        if(bot.y<=future.y-gap*.65){
+          botStriking=true;targetX=future.x;targetY=future.y+gap+100;
         }else{
-          let side=bot.x>=puck.x?1:-1,sx=puck.x+side*(gap+24);
-          if(sx<PADDLE_R+4||sx>W-PADDLE_R-4){side=-side;sx=puck.x+side*(gap+24);}
-          targetX=sx;targetY=Math.max(puck.y-gap-8,PADDLE_R+6-mouthDip(sx));
+          const side=future.x<W/2?1:-1;
+          targetX=future.x+side*(gap+28);targetY=Math.max(future.y-gap-24,PADDLE_R+6-mouthDip(targetX));
         }
       }else if(botTactic==='intercept'){
-        targetY=clamp(d.home+86,d.home,270);
+        retarget=.94;targetY=clamp(d.home+100,d.home,285);
         if(puck.y<=targetY){targetY=d.home;targetX=puck.y>d.home?predictAtY(d.home,d.predict):W/2;}
         else targetX=predictAtY(targetY,d.predict);
         targetX+=rand(-d.error,d.error);
       }else if(botTactic==='attack'&&inBot){
-        retarget=.9;botThink=Math.min(botThink,.1);
-        const aimX=player.x<W/2?GOAL_L+GOAL_W*.8:GOAL_L+GOAL_W*.2;
-        let dirX=aimX-puck.x,dirY=H+40-puck.y;const dl=hypot(dirX,dirY)||1;dirX/=dl;dirY/=dl;
-        const toX=puck.x-bot.x,toY=puck.y-bot.y,toD=hypot(toX,toY)||1;
-        if(toY>0&&(toX*dirX+toY*dirY)/toD>.72){targetX=puck.x+dirX*70;targetY=puck.y+dirY*70;}
-        else{targetX=puck.x-dirX*(gap+52);targetY=puck.y-dirY*(gap+52);}
-        targetX+=rand(-d.error*.5,d.error*.5);
+        retarget=1;botThink=Math.min(botThink,.04);
+        const distance=hypot(puck.x-bot.x,puck.y-bot.y);
+        const lead=clamp(distance/(d.speed*d.strike+puckSpeed*.3),.025,.22),future=predictPuckAfter(lead);
+        future.y=clamp(future.y,PADDLE_R+10,CENTER-18);
+        const aimX=player.x<W/2?GOAL_L+GOAL_W*.82:GOAL_L+GOAL_W*.18;
+        let dirX=aimX-future.x,dirY=H+50-future.y;const dl=hypot(dirX,dirY)||1;dirX/=dl;dirY/=dl;
+        const toX=future.x-bot.x,toY=future.y-bot.y,along=toX*dirX+toY*dirY;
+        const lateral=Math.abs(toX*dirY-toY*dirX),ready=along>gap*.3&&lateral<gap*.85;
+        if(ready){
+          botStriking=true;targetX=future.x+dirX*(gap+115);targetY=future.y+dirY*(gap+115);
+        }else{
+          targetX=future.x-dirX*(gap+24);targetY=future.y-dirY*(gap+24);
+        }
+        targetX+=rand(-d.error*.35,d.error*.35);
       }else{
         botTactic='defend';targetY=d.home;
-        targetX=lerp(W/2,predictAtY(d.home,d.predict*.72),approaching?.55:.12)+rand(-d.error*.35,d.error*.35);
+        targetX=lerp(W/2,predictAtY(d.home,d.predict*.78),approaching?.68:.18)+rand(-d.error*.3,d.error*.3);
       }
       if(mode==='easy'&&Math.random()<.16)targetX+=rand(-105,105);
       botAimX=clamp(targetX,PADDLE_R,W-PADDLE_R);
-      bot.tx=lerp(bot.tx,botAimX,retarget);bot.ty=lerp(bot.ty,clamp(targetY,PADDLE_R+6-mouthDip(botAimX),CENTER-PADDLE_R-8),retarget);
+      bot.tx=lerp(bot.tx,botAimX,retarget);bot.ty=lerp(bot.ty,clamp(targetY,PADDLE_R+6-mouthDip(botAimX),CENTER-PADDLE_R),retarget);
     }
     moveBotPaddle(d,dt);
   }
   function moveBotPaddle(d,dt){
     const dx=bot.tx-bot.x,dy=bot.ty-bot.y,dist=hypot(dx,dy);
-    const speedCap=d.speed*(botTactic==='attack'?1.35:botTactic==='clear'?1.15:1);
+    const speedCap=d.speed*(botStriking?d.strike:botTactic==='clear'?1.3:botTactic==='attack'?1.18:1.08);
     // A strike plows through its target at full speed; only positioning moves ease in.
-    const desiredSpeed=Math.min(speedCap,dist*(botTactic==='attack'?9:4.2));
+    const desiredSpeed=Math.min(speedCap,dist*(botStriking?16:botTactic==='clear'?8:botTactic==='attack'?7:5.2));
     const desiredX=dist>.5?dx/dist*desiredSpeed:0,desiredY=dist>.5?dy/dist*desiredSpeed:0;
-    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*(botTactic==='attack'?1.7:1)*dt;
+    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*(botStriking?2.6:botTactic==='clear'?1.8:botTactic==='attack'?1.6:1)*dt;
     if(change>maxChange){bot.vx+=changeX/change*maxChange;bot.vy+=changeY/change*maxChange;}else{bot.vx=desiredX;bot.vy=desiredY;}
     const step=hypot(bot.vx,bot.vy)*dt;
     if(step>=dist&&dist<18){bot.x=bot.tx;bot.y=bot.ty;bot.vx=bot.vy=0;}else{bot.x+=bot.vx*dt;bot.y+=bot.vy*dt;}
-    const nx=clamp(bot.x,PADDLE_R,W-PADDLE_R),ny=clamp(bot.y,PADDLE_R+6-mouthDip(bot.x),CENTER-PADDLE_R-8);
+    const nx=clamp(bot.x,PADDLE_R,W-PADDLE_R),ny=clamp(bot.y,PADDLE_R+6-mouthDip(bot.x),CENTER-PADDLE_R);
     if(nx!==bot.x)bot.vx=0;if(ny!==bot.y)bot.vy=0;bot.x=nx;bot.y=ny;
   }
   function movePaddle(p,tx,ty,maxSpeed,dt){
@@ -324,16 +341,19 @@
     p.vx=(p.x-ox)/dt;p.vy=(p.y-oy)/dt;
   }
   function updatePlayer(dt){
-    player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R+8,H-PADDLE_R-6+mouthDip(player.tx));
+    player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R,H-PADDLE_R-6+mouthDip(player.tx));
     movePaddle(player,player.tx,player.ty,PLAYER_MAX,dt);
     const maxY=H-PADDLE_R-6+mouthDip(player.x);
     if(player.y>maxY)player.y=maxY;
   }
 
   function collidePaddle(p){
-    const dx=puck.x-p.x,dy=puck.y-p.y,min=puck.r+p.r,ds=dx*dx+dy*dy;if(ds>=min*min)return;
+    const dx=puck.x-p.x,dy=puck.y-p.y,min=puck.r+p.r,release=min+p.r*.85,ds=dx*dx+dy*dy;
+    if(ds>=min*min){if(!p.contactArmed&&ds>=release*release)p.contactArmed=true;return;}
     const dist=Math.sqrt(ds)||.001,nx=dx/dist,ny=dy/dist,over=min-dist;
     puck.x+=nx*(over+.4);puck.y+=ny*(over+.4);
+    // Keep resolving overlap, but apply only one physical impulse per contact.
+    if(!p.contactArmed)return;
     const pinchedLeft=p.x<min+8&&puck.x<p.x,pinchedRight=p.x>W-min-8&&puck.x>p.x;
     if(pinchedLeft||pinchedRight){
       const side=pinchedLeft?1:-1,vertical=puck.y<=p.y?-1:1,wallX=pinchedLeft?puck.r:W-puck.r;
@@ -341,18 +361,22 @@
       puck.x=wallX;puck.y=clamp(p.y+vertical*verticalGap,puck.r,H-puck.r);
       puck.vx=side*80;puck.vy=vertical*Math.max(430,Math.abs(puck.vy),Math.abs(p.vy)*.45);
       if(p.hitCooldown<=0){burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',7,250);tone(p===player?310:260,.055,'square',.05);}
-      p.hitCooldown=.075;return;
+      p.hitCooldown=.075;p.contactArmed=false;return;
     }
     const rvx=puck.vx-p.vx,rvy=puck.vy-p.vy,into=rvx*nx+rvy*ny;
     if(into<0){
       // Only the paddle's velocity toward the puck adds shot power. A fast,
       // deliberate strike can now exceed the old fixed puck-speed ceiling.
-      const impactSpeed=Math.max(0,p.vx*nx+p.vy*ny),power=clamp(impactSpeed/PLAYER_MAX,0,1);
+      const isBot=p===bot,d=isBot?difficulty[mode]:null,impactSpeed=Math.max(0,p.vx*nx+p.vy*ny);
+      const power=clamp(Math.max(impactSpeed/PLAYER_MAX*(isBot?d.shot:1),isBot&&botStriking?d.minShot:0),0,1);
       puck.vx-=1.72*into*nx;puck.vy-=1.72*into*ny;
-      const transfer=.22+power*.38;puck.vx+=p.vx*transfer;puck.vy+=p.vy*transfer;
-      const rawSpeed=hypot(puck.vx,puck.vy),boostedSpeed=390+power*(MAX_PUCK_SPEED-390);
-      const speed=clamp(Math.max(rawSpeed,boostedSpeed),390,MAX_PUCK_SPEED),len=rawSpeed||1;puck.vx=puck.vx/len*speed;puck.vy=puck.vy/len*speed;
+      const transfer=.22+power*(isBot?.55:.38);puck.vx+=p.vx*transfer;puck.vy+=p.vy*transfer;
+      const shotLimit=isBot?d.shotSpeed:PLAYER_MAX_PUCK_SPEED;
+      const rawSpeed=hypot(puck.vx,puck.vy),boostedSpeed=390+power*(shotLimit-390);
+      const speed=clamp(Math.max(rawSpeed,boostedSpeed),390,shotLimit),len=rawSpeed||1;puck.vx=puck.vx/len*speed;puck.vy=puck.vy/len*speed;
       if(p.hitCooldown<=0){burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',8+Math.round(power*10),260+power*280);tone(p===player?310:260,.055,'square',.045+power*.035);if(power>.72&&!reducedMotion)shake=Math.max(shake,.16);p.hitCooldown=.045;}
+      p.contactArmed=false;
+      if(isBot)botStriking=false;
     }
   }
   function collidePost(px,py){
