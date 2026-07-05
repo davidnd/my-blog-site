@@ -22,7 +22,7 @@
     .icon-btn { width:42px; height:42px; padding:0; border:1px solid rgba(190,214,255,.25); border-radius:12px; color:#fff; background:rgba(13,20,58,.78); cursor:pointer; }
     .icon-btn:hover,.icon-btn:focus-visible { border-color:var(--cyan); background:#17265b; outline:none; }
     #stage { position:relative; min-height:0; display:grid; place-items:center; padding:4px 10px max(10px,env(safe-area-inset-bottom)); overflow:hidden; }
-    canvas { display:block; width:400px; height:600px; aspect-ratio:2/3; border-radius:24px; box-shadow:0 0 22px rgba(50,232,255,.32),0 0 80px rgba(112,43,255,.18); touch-action:none; cursor:none; }
+    canvas { display:block; width:400px; height:632px; aspect-ratio:600/948; touch-action:none; cursor:none; }
     #message { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; z-index:2; text-align:center; text-transform:uppercase; font-weight:1000; letter-spacing:.08em; text-shadow:0 3px 18px #000,0 0 24px currentColor; }
     #message.hidden { display:none; }
     #message .callout { font-size:clamp(26px,6vmin,56px); animation:pop .34s ease-out; }
@@ -59,7 +59,7 @@
     .btn.pink { background:linear-gradient(135deg,#ff75be,#ff3f8e); color:#210512; }
     .final-score { margin:15px 0 20px; font-size:48px; font-weight:1000; font-variant-numeric:tabular-nums; }
     .victory h2 { color:#ffe45b; text-shadow:0 0 24px rgba(255,228,91,.5); }
-    @media (max-width:560px) { #hud { gap:6px; padding-inline:7px; } .score { min-width:138px; gap:6px; } .score b { font-size:24px; } #difficulty-label { display:none; } .icon-btn { width:39px; height:39px; } #stage { padding-inline:5px; } canvas { border-radius:17px; } }
+    @media (max-width:560px) { #hud { gap:6px; padding-inline:7px; } .score { min-width:138px; gap:6px; } .score b { font-size:24px; } #difficulty-label { display:none; } .icon-btn { width:39px; height:39px; } #stage { padding-inline:5px; } }
     @media (orientation:landscape) and (max-height:560px) {
       #app { grid-template-rows:auto 1fr; } #hud { min-height:46px; padding-block:4px; } .icon-btn { width:36px; height:36px; } .score b { font-size:22px; }
       .overlay { padding:6px; } .panel { max-height:calc(100dvh - 12px); padding:10px 22px; } .kicker { display:none; }
@@ -81,7 +81,7 @@
     <button class="icon-btn" id="pause-btn" aria-label="Pause game" title="Pause (P or Escape)">Ⅱ</button>
   </header>
   <section id="stage">
-    <canvas id="game" width="600" height="900" aria-label="Neon air hockey table"></canvas>
+    <canvas id="game" width="600" height="948" aria-label="Neon air hockey table"></canvas>
     <div id="message" class="hidden" aria-live="polite"></div>
   </section>
 </main>
@@ -127,24 +127,27 @@
   const fxCanvas = $('fx'), fxCtx = fxCanvas.getContext('2d');
   let fxW = 0, fxH = 0;
   const W = 600, H = 900, CENTER = H / 2, GOAL_W = 230, GOAL_L = (W - GOAL_W) / 2;
-  const PUCK_R = 16, PADDLE_R = 38, PLAYER_MAX = 1050, WIN_SCORE = 10;
+  const PAD = 24; // extra canvas space above/below the field so the goal slots can cut outward
+  const PUCK_R = 16, PADDLE_R = 38, PLAYER_MAX = 1050, MAX_PUCK_SPEED = 1450, WIN_SCORE = 10;
   const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
   const rand = (a,b) => a + Math.random() * (b-a);
   const lerp = (a,b,t) => a + (b-a)*t;
   const hypot = Math.hypot;
+  // How far past the wall a paddle may dip when its x is inside the goal mouth (0 outside, ramps up inside).
+  const mouthDip = x => clamp(Math.min(x - GOAL_L, W - GOAL_L - x) / 56, 0, 1) * 18;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const difficulty = {
-    easy:    { label:'Easy', speed:350, accel:850,  reaction:.34, error:68, predict:.25, attack:.08, home:116 },
-    medium:  { label:'Medium', speed:540, accel:1350, reaction:.19, error:30, predict:.68, attack:.50, home:134 },
-    hard:    { label:'Hard', speed:700, accel:1750, reaction:.12, error:13, predict:.90, attack:.72, home:146 },
-    extreme: { label:'Extremely Hard',speed:850, accel:2150, reaction:.075,error:5,  predict:1,   attack:.88, home:156 }
+    easy:    { label:'Easy', speed:350, accel:850,  reaction:.34, error:68, predict:.25, attack:.15, home:116 },
+    medium:  { label:'Medium', speed:540, accel:1350, reaction:.19, error:30, predict:.68, attack:.62, home:134 },
+    hard:    { label:'Hard', speed:700, accel:1750, reaction:.12, error:13, predict:.90, attack:.85, home:146 },
+    extreme: { label:'Extremely Hard',speed:850, accel:2150, reaction:.075,error:5,  predict:1,   attack:.95, home:156 }
   };
 
   let state = 'menu', previousState = 'menu', raf = 0, lastTime = 0;
   let playerScore = 0, botScore = 0, mode = 'medium', nextServe = -1;
   let countdown = 0, scoreLabel = '', shake = 0, goalFlash = 0, scorePulse = 0, endDelay = 0, pendingWinner = false;
-  let musicOn = true, sfxOn = true, pointerActive = false, locked = false;
+  let musicOn = true, sfxOn = true, pointerActive = false, pointerX = 0, pointerY = 0, locked = false;
   let botThink = 0, botAimX = W/2, botTactic = 'defend', botTacticTime = 0, stuckTime = 0;
   const puck = {x:W/2,y:H/2,vx:0,vy:0,r:PUCK_R};
   const player = {x:W/2,y:H-140,vx:0,vy:0,tx:W/2,ty:H-140,r:PADDLE_R,hitCooldown:0};
@@ -208,11 +211,13 @@
     const stage=$('stage'), cs=getComputedStyle(stage);
     const availableW=stage.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);
     const availableH=stage.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);
-    const scale=Math.max(.1,Math.min(availableW/W,availableH/H));
-    canvas.style.width=`${Math.floor(W*scale)}px`;canvas.style.height=`${Math.floor(H*scale)}px`;
+    const scale=Math.max(.1,Math.min(availableW/W,availableH/(H+PAD*2)));
+    canvas.style.width=`${Math.floor(W*scale)}px`;canvas.style.height=`${Math.floor((H+PAD*2)*scale)}px`;
   }
   function serve(){
     const angle=rand(-.42,.42), speed=480;
+    // Discard any movement collected while the puck was waiting to serve.
+    player.tx=player.x;player.ty=player.y;player.vx=player.vy=0;
     puck.vx=Math.sin(angle)*speed; puck.vy=nextServe*Math.cos(angle)*speed;
     nextServe*=-1; countdown=0; scoreLabel=''; $('message').classList.add('hidden');
   }
@@ -256,43 +261,61 @@
     if(botThink<=0){
       botThink=d.reaction*rand(.9,1.12);
       const inBot=puck.y<CENTER,approaching=puck.vy<-55,puckSpeed=hypot(puck.vx,puck.vy);
-      if(botTacticTime<=0){
+      const puckBehind=inBot&&puck.y<bot.y-6;
+      if(puckBehind){if(botTactic!=='clear'){botTactic='clear';botTacticTime=.5;}}
+      else if(botTactic==='clear'){botTactic='defend';botTacticTime=.3;}
+      else if(botTacticTime<=0){
         if(approaching&&puck.y<CENTER+100){botTactic='intercept';botTacticTime=rand(.32,.55);}
-        else if(inBot&&puck.vy>-100&&puckSpeed<930&&Math.random()<d.attack){botTactic='attack';botTacticTime=rand(.34,.56);}
+        else if(inBot&&puck.vy>-100&&puckSpeed<930&&Math.random()<d.attack){botTactic='attack';botTacticTime=rand(.4,.65);}
         else{botTactic='defend';botTacticTime=rand(.42,.72);}
       }
       if((botTactic==='intercept'&&!approaching)||(botTactic==='attack'&&!inBot)){botTactic='defend';botTacticTime=.35;}
 
-      let targetX=W/2,targetY=d.home;
-      if(botTactic==='intercept'){
+      let targetX=W/2,targetY=d.home,retarget=.7;
+      const gap=PADDLE_R+PUCK_R;
+      if(botTactic==='clear'){
+        retarget=.85;botThink=Math.min(botThink,.09);
+        if(bot.y<=puck.y-gap*.55){
+          targetX=puck.x+rand(-4,4);targetY=puck.y+46;
+        }else{
+          let side=bot.x>=puck.x?1:-1,sx=puck.x+side*(gap+24);
+          if(sx<PADDLE_R+4||sx>W-PADDLE_R-4){side=-side;sx=puck.x+side*(gap+24);}
+          targetX=sx;targetY=Math.max(puck.y-gap-8,PADDLE_R+6-mouthDip(sx));
+        }
+      }else if(botTactic==='intercept'){
         targetY=clamp(d.home+86,d.home,270);
         if(puck.y<=targetY){targetY=d.home;targetX=puck.y>d.home?predictAtY(d.home,d.predict):W/2;}
         else targetX=predictAtY(targetY,d.predict);
         targetX+=rand(-d.error,d.error);
       }else if(botTactic==='attack'&&inBot){
-        targetY=clamp(puck.y+62,d.home+45,CENTER-PADDLE_R-12);
-        const openSide=player.x<W/2?W-PADDLE_R:PADDLE_R;
-        targetX=lerp(puck.x,openSide,mode==='extreme'?.2:.1)+rand(-d.error*.7,d.error*.7);
+        retarget=.9;botThink=Math.min(botThink,.1);
+        const aimX=player.x<W/2?GOAL_L+GOAL_W*.8:GOAL_L+GOAL_W*.2;
+        let dirX=aimX-puck.x,dirY=H+40-puck.y;const dl=hypot(dirX,dirY)||1;dirX/=dl;dirY/=dl;
+        const toX=puck.x-bot.x,toY=puck.y-bot.y,toD=hypot(toX,toY)||1;
+        if(toY>0&&(toX*dirX+toY*dirY)/toD>.72){targetX=puck.x+dirX*70;targetY=puck.y+dirY*70;}
+        else{targetX=puck.x-dirX*(gap+52);targetY=puck.y-dirY*(gap+52);}
+        targetX+=rand(-d.error*.5,d.error*.5);
       }else{
         botTactic='defend';targetY=d.home;
         targetX=lerp(W/2,predictAtY(d.home,d.predict*.72),approaching?.55:.12)+rand(-d.error*.35,d.error*.35);
       }
       if(mode==='easy'&&Math.random()<.16)targetX+=rand(-105,105);
       botAimX=clamp(targetX,PADDLE_R,W-PADDLE_R);
-      const retarget=botTactic==='attack'?.55:.7;
-      bot.tx=lerp(bot.tx,botAimX,retarget);bot.ty=lerp(bot.ty,clamp(targetY,PADDLE_R+18,CENTER-PADDLE_R-8),retarget);
+      bot.tx=lerp(bot.tx,botAimX,retarget);bot.ty=lerp(bot.ty,clamp(targetY,PADDLE_R+6-mouthDip(botAimX),CENTER-PADDLE_R-8),retarget);
     }
     moveBotPaddle(d,dt);
   }
   function moveBotPaddle(d,dt){
     const dx=bot.tx-bot.x,dy=bot.ty-bot.y,dist=hypot(dx,dy);
-    const desiredSpeed=Math.min(d.speed,dist*4.2);
+    const speedCap=d.speed*(botTactic==='attack'?1.35:botTactic==='clear'?1.15:1);
+    // A strike plows through its target at full speed; only positioning moves ease in.
+    const desiredSpeed=Math.min(speedCap,dist*(botTactic==='attack'?9:4.2));
     const desiredX=dist>.5?dx/dist*desiredSpeed:0,desiredY=dist>.5?dy/dist*desiredSpeed:0;
-    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*dt;
+    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*(botTactic==='attack'?1.7:1)*dt;
     if(change>maxChange){bot.vx+=changeX/change*maxChange;bot.vy+=changeY/change*maxChange;}else{bot.vx=desiredX;bot.vy=desiredY;}
     const step=hypot(bot.vx,bot.vy)*dt;
     if(step>=dist&&dist<18){bot.x=bot.tx;bot.y=bot.ty;bot.vx=bot.vy=0;}else{bot.x+=bot.vx*dt;bot.y+=bot.vy*dt;}
-    const nx=clamp(bot.x,PADDLE_R,W-PADDLE_R),ny=clamp(bot.y,PADDLE_R+18,CENTER-PADDLE_R-8);
+    const nx=clamp(bot.x,PADDLE_R,W-PADDLE_R),ny=clamp(bot.y,PADDLE_R+6-mouthDip(bot.x),CENTER-PADDLE_R-8);
     if(nx!==bot.x)bot.vx=0;if(ny!==bot.y)bot.vy=0;bot.x=nx;bot.y=ny;
   }
   function movePaddle(p,tx,ty,maxSpeed,dt){
@@ -301,8 +324,10 @@
     p.vx=(p.x-ox)/dt;p.vy=(p.y-oy)/dt;
   }
   function updatePlayer(dt){
-    player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R+8,H-PADDLE_R-18);
+    player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R+8,H-PADDLE_R-6+mouthDip(player.tx));
     movePaddle(player,player.tx,player.ty,PLAYER_MAX,dt);
+    const maxY=H-PADDLE_R-6+mouthDip(player.x);
+    if(player.y>maxY)player.y=maxY;
   }
 
   function collidePaddle(p){
@@ -320,11 +345,24 @@
     }
     const rvx=puck.vx-p.vx,rvy=puck.vy-p.vy,into=rvx*nx+rvy*ny;
     if(into<0){
+      // Only the paddle's velocity toward the puck adds shot power. A fast,
+      // deliberate strike can now exceed the old fixed puck-speed ceiling.
+      const impactSpeed=Math.max(0,p.vx*nx+p.vy*ny),power=clamp(impactSpeed/PLAYER_MAX,0,1);
       puck.vx-=1.72*into*nx;puck.vy-=1.72*into*ny;
-      puck.vx+=p.vx*.22;puck.vy+=p.vy*.22;
-      const speed=clamp(hypot(puck.vx,puck.vy),390,1150),len=hypot(puck.vx,puck.vy)||1;puck.vx=puck.vx/len*speed;puck.vy=puck.vy/len*speed;
-      if(p.hitCooldown<=0){const power=clamp(hypot(p.vx,p.vy)/PLAYER_MAX,0,1);burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',8+Math.round(power*10),260+power*280);tone(p===player?310:260,.055,'square',.045+power*.035);if(power>.72&&!reducedMotion)shake=Math.max(shake,.16);p.hitCooldown=.045;}
+      const transfer=.22+power*.38;puck.vx+=p.vx*transfer;puck.vy+=p.vy*transfer;
+      const rawSpeed=hypot(puck.vx,puck.vy),boostedSpeed=390+power*(MAX_PUCK_SPEED-390);
+      const speed=clamp(Math.max(rawSpeed,boostedSpeed),390,MAX_PUCK_SPEED),len=rawSpeed||1;puck.vx=puck.vx/len*speed;puck.vy=puck.vy/len*speed;
+      if(p.hitCooldown<=0){burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',8+Math.round(power*10),260+power*280);tone(p===player?310:260,.055,'square',.045+power*.035);if(power>.72&&!reducedMotion)shake=Math.max(shake,.16);p.hitCooldown=.045;}
     }
+  }
+  function collidePost(px,py){
+    const dx=puck.x-px,dy=puck.y-py,ds=dx*dx+dy*dy;
+    if(ds>=puck.r*puck.r)return false;
+    const dist=Math.sqrt(ds)||.001,nx=dx/dist,ny=dy/dist;
+    puck.x=px+nx*(puck.r+.4);puck.y=py+ny*(puck.r+.4);
+    const into=puck.vx*nx+puck.vy*ny;
+    if(into<0){puck.vx-=1.94*into*nx;puck.vy-=1.94*into*ny;wallHit();}
+    return true;
   }
   function physics(dt){
     const steps=Math.max(1,Math.ceil(dt/(1/240))),sd=dt/steps;
@@ -333,16 +371,19 @@
       const friction=Math.pow(.993,sd*60);puck.vx*=friction;puck.vy*=friction;
       if(puck.x-puck.r<0){puck.x=puck.r;puck.vx=Math.abs(puck.vx)*.97;wallHit();}
       else if(puck.x+puck.r>W){puck.x=W-puck.r;puck.vx=-Math.abs(puck.vx)*.97;wallHit();}
-      const inGoal=puck.x>GOAL_L&&puck.x<W-GOAL_L;
-      if(!inGoal&&puck.y-puck.r<0){puck.y=puck.r;puck.vy=Math.abs(puck.vy)*.97;wallHit();}
-      else if(!inGoal&&puck.y+puck.r>H){puck.y=H-puck.r;puck.vy=-Math.abs(puck.vy)*.97;wallHit();}
+      const inMouth=puck.x>GOAL_L&&puck.x<W-GOAL_L;
+      if(!inMouth&&puck.y-puck.r<0){
+        if(!collidePost(puck.x<W/2?GOAL_L:W-GOAL_L,0)){puck.y=puck.r;puck.vy=Math.abs(puck.vy)*.97;wallHit();}
+      }else if(!inMouth&&puck.y+puck.r>H){
+        if(!collidePost(puck.x<W/2?GOAL_L:W-GOAL_L,H)){puck.y=H-puck.r;puck.vy=-Math.abs(puck.vy)*.97;wallHit();}
+      }
       collidePaddle(player);collidePaddle(bot);
-      if(puck.y+puck.r<0){score(true);return;}
-      if(puck.y-puck.r>H){score(false);return;}
+      if(puck.y<-6){score(true);return;}
+      if(puck.y>H+6){score(false);return;}
     }
     let speed=hypot(puck.vx,puck.vy);
     if(speed>0&&speed<370){puck.vx=puck.vx/speed*370;puck.vy=puck.vy/speed*370;speed=370;}
-    if(speed>1150){puck.vx=puck.vx/speed*1150;puck.vy=puck.vy/speed*1150;}
+    if(speed>MAX_PUCK_SPEED){puck.vx=puck.vx/speed*MAX_PUCK_SPEED;puck.vy=puck.vy/speed*MAX_PUCK_SPEED;}
     const nearWall=puck.x<PUCK_R+6||puck.x>W-PUCK_R-6;
     stuckTime=nearWall&&Math.abs(puck.vx)<45?stuckTime+dt:0;
     if(stuckTime>.45){puck.vx=(puck.x<W/2?1:-1)*Math.max(150,Math.abs(puck.vx));puck.vy+=(Math.random()<.5?-1:1)*95;stuckTime=0;}
@@ -397,27 +438,39 @@
     for(let i=0;i<trail.length;i++)trail[i].a*=.92;
   }
 
-  function roundedRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);}
+  // The table border, detouring outward around both goal mouths so each goal
+  // reads as a slot cut out of the wall (same stroke as the rest of the border).
+  function borderPath(){
+    const i=7,r=25,b=-13;
+    ctx.beginPath();
+    ctx.moveTo(i+r,i);
+    ctx.lineTo(GOAL_L,i);ctx.lineTo(GOAL_L,b);ctx.lineTo(W-GOAL_L,b);ctx.lineTo(W-GOAL_L,i);
+    ctx.lineTo(W-i-r,i);ctx.arcTo(W-i,i,W-i,i+r,r);
+    ctx.lineTo(W-i,H-i-r);ctx.arcTo(W-i,H-i,W-i-r,H-i,r);
+    ctx.lineTo(W-GOAL_L,H-i);ctx.lineTo(W-GOAL_L,H-b);ctx.lineTo(GOAL_L,H-b);ctx.lineTo(GOAL_L,H-i);
+    ctx.lineTo(i+r,H-i);ctx.arcTo(i,H-i,i,H-i-r,r);
+    ctx.lineTo(i,i+r);ctx.arcTo(i,i,i+r,i,r);
+    ctx.closePath();
+  }
   function drawTable(){
-    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#260b49');g.addColorStop(.5,'#071c44');g.addColorStop(1,'#072f4f');ctx.fillStyle=g;roundedRect(4,4,W-8,H-8,28);ctx.fill();
-    ctx.save();ctx.beginPath();ctx.rect(0,0,W,CENTER+4);ctx.clip();ctx.shadowBlur=24;ctx.shadowColor='#ff3fa4';ctx.strokeStyle='#ff4dab';ctx.lineWidth=7;roundedRect(7,7,W-14,H-14,25);ctx.stroke();ctx.restore();
-    ctx.save();ctx.beginPath();ctx.rect(0,CENTER-4,W,CENTER+4);ctx.clip();ctx.shadowBlur=24;ctx.shadowColor='#32e8ff';ctx.strokeStyle='#46eaff';ctx.lineWidth=7;roundedRect(7,7,W-14,H-14,25);ctx.stroke();ctx.restore();
-    ctx.save();ctx.globalAlpha=.14;ctx.strokeStyle='#78b8ff';ctx.lineWidth=1;for(let y=45;y<H;y+=52){ctx.beginPath();ctx.moveTo(20,y);ctx.lineTo(W-20,y);ctx.stroke();}for(let x=28;x<W;x+=52){ctx.beginPath();ctx.moveTo(x,18);ctx.lineTo(x,H-18);ctx.stroke();}ctx.restore();
+    // Use the actual border as the table silhouette. Keeping the canvas clear
+    // outside this path removes the dark backing plate at all four corners and
+    // behind the goal slots.
+    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#260b49');g.addColorStop(.5,'#071c44');g.addColorStop(1,'#072f4f');
+    ctx.fillStyle=g;borderPath();ctx.fill();
+    const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#ff4dab');bg.addColorStop(.4,'#ff4dab');bg.addColorStop(.6,'#46eaff');bg.addColorStop(1,'#46eaff');
+    ctx.save();ctx.strokeStyle=bg;ctx.lineJoin='round';ctx.globalCompositeOperation='lighter';
+    ctx.globalAlpha=.15;ctx.lineWidth=19;borderPath();ctx.stroke();
+    ctx.globalAlpha=.35;ctx.lineWidth=12;borderPath();ctx.stroke();
+    ctx.globalAlpha=1;ctx.lineWidth=6;borderPath();ctx.stroke();
+    ctx.restore();
+    ctx.save();ctx.globalAlpha=.14;ctx.strokeStyle='#78b8ff';ctx.lineWidth=1;
+    for(let y=CENTER;y<H-18;y+=52){ctx.beginPath();ctx.moveTo(20,y);ctx.lineTo(W-20,y);if(y>CENTER){ctx.moveTo(20,H-y);ctx.lineTo(W-20,H-y);}ctx.stroke();}
+    for(let x=W/2;x<W-20;x+=52){ctx.beginPath();ctx.moveTo(x,18);ctx.lineTo(x,H-18);if(x>W/2){ctx.moveTo(W-x,18);ctx.lineTo(W-x,H-18);}ctx.stroke();}
+    ctx.restore();
     ctx.setLineDash([16,13]);ctx.lineWidth=4;ctx.strokeStyle='rgba(214,239,255,.68)';ctx.beginPath();ctx.moveTo(12,CENTER);ctx.lineTo(W-12,CENTER);ctx.stroke();ctx.setLineDash([]);
     ctx.lineWidth=4;ctx.strokeStyle='rgba(220,242,255,.5)';ctx.beginPath();ctx.arc(W/2,CENTER,82,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(W/2,CENTER,8,0,Math.PI*2);ctx.stroke();
-    drawGoal(0,'#ff3fa4');drawGoal(H,'#32e8ff');
-    if(goalFlash>0){ctx.fillStyle=`rgba(255,255,255,${goalFlash*.28})`;ctx.fillRect(GOAL_L,0,GOAL_W,52);ctx.fillRect(GOAL_L,H-52,GOAL_W,52);}
-  }
-  function drawGoal(y,color){
-    const top=y===0,depth=48,back=top?depth:H-depth;
-    ctx.save();
-    const shade=ctx.createLinearGradient(0,top?0:H-depth,0,top?depth:H);
-    shade.addColorStop(top?0:1,'rgba(1,2,12,.98)');shade.addColorStop(top?1:0,color+'28');
-    ctx.fillStyle=shade;ctx.fillRect(GOAL_L-2,top?0:H-depth,GOAL_W+4,depth);
-    ctx.shadowBlur=14;ctx.shadowColor=color;ctx.strokeStyle=color;ctx.lineWidth=5;ctx.beginPath();
-    ctx.moveTo(GOAL_L,y);ctx.lineTo(GOAL_L,back);ctx.lineTo(W-GOAL_L,back);ctx.lineTo(W-GOAL_L,y);ctx.stroke();
-    ctx.restore();
-    ctx.save();ctx.strokeStyle='rgba(220,245,255,.13)';ctx.lineWidth=2;for(let x=GOAL_L+20;x<W-GOAL_L;x+=24){ctx.beginPath();ctx.moveTo(x,top?3:H-3);ctx.lineTo(x,back);ctx.stroke();}ctx.restore();
+    if(goalFlash>0){ctx.fillStyle=`rgba(255,255,255,${goalFlash*.28})`;ctx.fillRect(GOAL_L,-16,GOAL_W,36);ctx.fillRect(GOAL_L,H-20,GOAL_W,36);}
   }
   function drawPaddle(p,color){
     ctx.save();ctx.shadowBlur=25;ctx.shadowColor=color;const g=ctx.createRadialGradient(p.x-10,p.y-12,3,p.x,p.y,p.r);g.addColorStop(0,'#fff');g.addColorStop(.18,color);g.addColorStop(.7,color);g.addColorStop(1,'#07152d');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.lineWidth=5;ctx.strokeStyle='#fff';ctx.globalAlpha=.78;ctx.stroke();ctx.globalAlpha=.45;ctx.fillStyle='#020715';ctx.beginPath();ctx.arc(p.x,p.y,p.r*.43,0,Math.PI*2);ctx.fill();ctx.restore();
@@ -430,7 +483,7 @@
     ctx.save();ctx.globalCompositeOperation='lighter';for(const p of list){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.shadowBlur=12;ctx.shadowColor=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.restore();ctx.globalAlpha=1;
   }
   function draw(){
-    ctx.clearRect(0,0,W,H);ctx.save();if(shake>0&&!reducedMotion)ctx.translate(rand(-4,4)*shake/.16,rand(-4,4)*shake/.16);drawTable();drawPuck();drawPaddle(bot,'#ff3fa4');drawPaddle(player,'#32e8ff');drawParticles();ctx.restore();
+    ctx.clearRect(0,0,W,H+PAD*2);ctx.save();ctx.translate(0,PAD);if(shake>0&&!reducedMotion)ctx.translate(rand(-4,4)*shake/.16,rand(-4,4)*shake/.16);drawTable();drawPuck();drawPaddle(bot,'#ff3fa4');drawPaddle(player,'#32e8ff');drawParticles();ctx.restore();
     if(countdown>0&&state==='playing'){const n=Math.ceil(countdown);$('message').classList.remove('hidden');$('message').innerHTML=`<div class="callout" style="color:${scoreLabel.includes('Bot')?'#ff74ba':'#63efff'}">${scoreLabel||'Get ready'}<small>${n>3?'':n}</small></div>`;}
   }
   function frame(now){
@@ -449,13 +502,18 @@
     raf=requestAnimationFrame(celebrate);
   }
 
-  function pointerToGame(clientX,clientY){const r=canvas.getBoundingClientRect();return{x:(clientX-r.left)/r.width*W,y:(clientY-r.top)/r.height*H};}
-  canvas.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')pointerActive=true;});
+  function rememberPointer(e){pointerX=e.clientX;pointerY=e.clientY;}
+  canvas.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse'){pointerActive=true;rememberPointer(e);}});
   canvas.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')pointerActive=false;});
-  canvas.addEventListener('pointerdown',e=>{if(state!=='playing')return;pointerActive=true;if(e.pointerType==='mouse')requestLock();else canvas.setPointerCapture(e.pointerId);const p=pointerToGame(e.clientX,e.clientY);player.tx=p.x;player.ty=p.y;e.preventDefault();});
-  canvas.addEventListener('pointermove',e=>{if(locked||state!=='playing'||(e.pointerType==='mouse'&&!pointerActive)||(e.pointerType!=='mouse'&&!canvas.hasPointerCapture(e.pointerId)))return;const p=pointerToGame(e.clientX,e.clientY);player.tx=p.x;player.ty=p.y;e.preventDefault();});
+  canvas.addEventListener('pointerdown',e=>{if(state!=='playing')return;pointerActive=true;rememberPointer(e);if(e.pointerType==='mouse')requestLock();else canvas.setPointerCapture(e.pointerId);e.preventDefault();});
+  canvas.addEventListener('pointermove',e=>{
+    if(locked||state!=='playing'||(e.pointerType==='mouse'&&!pointerActive)||(e.pointerType!=='mouse'&&!canvas.hasPointerCapture(e.pointerId)))return;
+    const dx=e.clientX-pointerX,dy=e.clientY-pointerY;rememberPointer(e);
+    if(countdown>0||endDelay>0){e.preventDefault();return;}
+    const r=canvas.getBoundingClientRect();player.tx+=dx/r.width*W;player.ty+=dy/r.height*(H+PAD*2);e.preventDefault();
+  });
   canvas.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')pointerActive=false;e.preventDefault();});
-  addEventListener('mousemove',e=>{if(!locked||state!=='playing')return;const r=canvas.getBoundingClientRect();player.tx+=e.movementX/r.width*W;player.ty+=e.movementY/r.height*H;});
+  addEventListener('mousemove',e=>{if(!locked||state!=='playing'||countdown>0||endDelay>0)return;const r=canvas.getBoundingClientRect();player.tx+=e.movementX/r.width*W;player.ty+=e.movementY/r.height*(H+PAD*2);});
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
   $('play-btn').onclick=startMatch;$('resume-btn').onclick=resumeGame;$('restart-btn').onclick=restartMatch;$('menu-btn').onclick=showMenu;$('end-menu-btn').onclick=showMenu;
