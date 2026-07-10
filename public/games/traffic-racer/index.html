@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Traffic Racer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --ink: #f2f4ff;
+    --dim: #9aa3c7;
+    --accent: #ffd24a;
+    --accent2: #4ae0ff;
+    --danger: #ff5a6a;
+    --panel: rgba(13, 16, 34, 0.82);
+    --line: rgba(122, 138, 220, 0.35);
+  }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0a0d1c;
+    color: var(--ink);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    touch-action: none;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #wrap { position: fixed; inset: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .px { font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; inset: 0; pointer-events: none; display: none; }
+  #hud.on { display: block; }
+  .hud-panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 12px;
+    backdrop-filter: blur(4px);
+  }
+  #hud-top {
+    position: absolute; top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  }
+  #hud-score { min-width: 128px; }
+  #hud-score .big { font-size: 20px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  #hud-score .sub { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  #hud-mid { text-align: center; white-space: nowrap; }
+  #hud-speed { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #hud-speed span { font-size: 12px; color: var(--dim); font-weight: 600; }
+  #hud-stats { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* wanted / police-heat panel: always visible, top right under pause */
+  #hud-wanted {
+    position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 54px); right: 8px;
+    width: 150px; padding: 8px 12px; text-align: center;
+  }
+  #w-status { font-size: 15px; font-weight: 900; letter-spacing: 2px; white-space: nowrap; }
+  #w-status.safe { color: #58e88b; }
+  #w-status.warn { color: #ffd24a; text-shadow: 0 0 10px rgba(255, 210, 74, 0.5); }
+  #w-status.hot { color: #ff5a6a; text-shadow: 0 0 12px rgba(255, 90, 106, 0.7); animation: blink 0.8s infinite; }
+  /* wanted level: 5 segments; each fills as heat builds, lit = active level */
+  #segs { display: flex; gap: 3px; margin-top: 6px; }
+  .seg { flex: 1; height: 11px; border-radius: 3px; background: rgba(122, 138, 220, 0.16); overflow: hidden; }
+  .seg i { display: block; height: 100%; width: 0%; background: #ffd24a; }
+  @media (max-width: 480px) {
+    #hud-wanted { width: 118px; padding: 5px 8px; }
+    #w-status { font-size: 12px; }
+    .seg { height: 9px; }
+  }
+  @media (max-width: 480px) {
+    .hud-panel { padding: 4px 8px; }
+    #hud-score { min-width: 92px; }
+    #hud-score .big { font-size: 16px; }
+    #hud-speed { font-size: 19px; }
+    #hud-stats { font-size: 10px; }
+    #combo { font-size: 16px; white-space: nowrap; }
+  }
+  #btn-pause {
+    pointer-events: auto;
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+    font-size: 16px; cursor: pointer;
+  }
+  #combo {
+    position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
+    font-size: 20px; font-weight: 800; color: var(--accent2);
+    text-shadow: 0 0 14px rgba(74, 224, 255, 0.7);
+    opacity: 0; transition: opacity .25s, transform .15s;
+  }
+  #combo.on { opacity: 1; }
+  #combo.pop { transform: translateX(-50%) scale(1.25); }
+
+  #banner {
+    position: absolute; top: 26%; left: 50%; transform: translate(-50%, -50%);
+    padding: 10px 22px; border-radius: 12px;
+    font-size: clamp(16px, 4.5vw, 26px); font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    background: rgba(20, 8, 12, 0.8); border: 2px solid var(--danger); color: #ffb3bb;
+    text-align: center; opacity: 0; transition: opacity .2s; white-space: nowrap;
+  }
+  #banner.info { border-color: var(--accent); color: #ffe6a3; }
+  #banner.good { border-color: #58e88b; color: #b8ffd2; }
+  #banner.on { opacity: 1; }
+
+  /* nitro meter */
+  #nitro-wrap {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 4px);
+    width: min(46vw, 260px); height: 14px; border-radius: 8px;
+    background: rgba(10, 12, 26, 0.75); border: 1px solid var(--line); overflow: hidden;
+  }
+  #nitro-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #2f7bff, #4ae0ff);
+    box-shadow: 0 0 12px rgba(74, 224, 255, 0.8);
+    transition: width .1s linear;
+  }
+  #nitro-wrap.ready #nitro-fill { background: linear-gradient(90deg, #38d9ff, #b0f3ff); }
+  #nitro-label, #bar-label {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800; letter-spacing: 2px; color: rgba(240, 250, 255, 0.9);
+  }
+  /* car integrity meter, sits just above nitro */
+  #armor-wrap {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 22px);
+    width: min(46vw, 260px); height: 11px; border-radius: 7px;
+    background: rgba(10, 12, 26, 0.75); border: 1px solid var(--line); overflow: hidden;
+  }
+  #int-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #2fbf5f, #7cff9e); transition: width .12s linear; }
+
+  /* touch buttons */
+  .tbtn {
+    pointer-events: auto;
+    position: absolute; bottom: max(18px, env(safe-area-inset-bottom));
+    width: 84px; height: 84px; border-radius: 50%;
+    border: 2px solid var(--line); background: var(--panel);
+    color: var(--ink); font-size: 13px; font-weight: 800; letter-spacing: 1px;
+    display: none; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  body.touch .tbtn { display: flex; }
+  #btn-nitro { right: 16px; border-color: rgba(74, 224, 255, 0.6); color: #b0f3ff; }
+  .tbtn:active, .tbtn.held { background: rgba(60, 70, 130, 0.85); transform: scale(0.94); }
+
+  /* ---------- screens ---------- */
+  .screen {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(6, 8, 20, 0.72); backdrop-filter: blur(5px);
+    text-align: center; padding: 20px; gap: 14px;
+  }
+  .screen.hidden { display: none; }
+  .title {
+    font-size: clamp(34px, 8vw, 58px); font-weight: 900; letter-spacing: 3px; text-transform: uppercase;
+    background: linear-gradient(180deg, #ffe27a, #ff9346);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 4px 30px rgba(255, 160, 60, 0.25);
+    line-height: 1.05;
+  }
+  .subtitle { color: var(--dim); font-size: 14px; margin-top: -8px; }
+  .menu-best { font-size: 16px; color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .btn {
+    pointer-events: auto; cursor: pointer;
+    min-width: 210px; padding: 14px 28px; border-radius: 14px;
+    font-size: 18px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    border: none; color: #1a1206;
+    background: linear-gradient(180deg, #ffe27a, #ffb246);
+    box-shadow: 0 6px 24px rgba(255, 170, 60, 0.35);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.ghost {
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); box-shadow: none;
+  }
+  .toggles { display: flex; gap: 10px; }
+  .tog {
+    pointer-events: auto; cursor: pointer;
+    padding: 9px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+    background: var(--panel); border: 1px solid var(--line); color: var(--dim);
+  }
+  .tog.on { color: var(--ink); border-color: var(--accent2); box-shadow: 0 0 10px rgba(74, 224, 255, 0.25); }
+  .controls-hint { color: var(--dim); font-size: 12.5px; line-height: 1.8; max-width: 420px; }
+  .controls-hint b { color: var(--ink); }
+  kbd {
+    display: inline-block; padding: 1px 7px; border-radius: 5px; margin: 0 1px;
+    background: rgba(60, 70, 120, 0.4); border: 1px solid var(--line);
+    font-family: inherit; font-size: 11px; color: var(--ink);
+  }
+  .backlink {
+    pointer-events: auto; color: var(--dim); font-size: 13px; font-weight: 700;
+    text-decoration: none; padding: 8px 14px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line);
+  }
+  .backlink:hover { color: var(--ink); }
+
+  /* game over stats */
+  #over-score { font-size: clamp(38px, 9vw, 60px); font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+  #over-newbest {
+    display: none; font-size: 14px; font-weight: 800; letter-spacing: 3px; color: #58e88b;
+    text-shadow: 0 0 14px rgba(88, 232, 139, 0.7); animation: blink 0.9s infinite;
+  }
+  #over-newbest.on { display: block; }
+  @keyframes blink { 50% { opacity: 0.35; } }
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(130px, 170px)); gap: 8px 12px;
+  }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; }
+  .stat .v { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 10px; color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div id="hud-top">
+      <div class="hud-panel" id="hud-score">
+        <div class="big" id="h-score">0</div>
+        <div class="sub">BEST <span id="h-best">0</span></div>
+      </div>
+      <div class="hud-panel" id="hud-mid">
+        <div id="hud-speed"><span id="h-speed">0</span> <span>km/h</span></div>
+        <div id="hud-stats"><span id="h-dist">0.0</span> km &nbsp;·&nbsp; <span id="h-time">0:00</span></div>
+      </div>
+      <button id="btn-pause" aria-label="Pause">❚❚</button>
+    </div>
+    <div class="hud-panel" id="hud-wanted">
+      <div id="w-status" class="safe">CLEAR</div>
+      <div id="segs">
+        <div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div><div class="seg"><i></i></div>
+      </div>
+    </div>
+    <div id="combo"></div>
+    <div id="banner"></div>
+    <div id="armor-wrap"><div id="int-fill"></div><div id="bar-label">CAR</div></div>
+    <div id="nitro-wrap"><div id="nitro-fill"></div><div id="nitro-label">NITRO</div></div>
+    <button class="tbtn" id="btn-nitro">NITRO</button>
+  </div>
+
+  <div class="screen" id="screen-start">
+    <div class="title">Traffic<br>Racer</div>
+    <div class="subtitle">Endless highway. Survive. Outrun the law.</div>
+    <div class="menu-best">BEST SCORE: <span id="menu-best">0</span></div>
+    <button class="btn" id="btn-play">▶ &nbsp;Play</button>
+    <div class="toggles">
+      <button class="tog" id="tog-music-1">♪ Music</button>
+      <button class="tog" id="tog-sfx-1">🔊 Sound FX</button>
+    </div>
+    <div class="controls-hint">
+      <b>Desktop:</b> <kbd>←</kbd><kbd>→</kbd> / <kbd>A</kbd><kbd>D</kbd> steer ·
+      <kbd>Space</kbd> nitro · <kbd>Esc</kbd>/<kbd>P</kbd> pause<br>
+      <b>Mobile:</b> drag to steer · on-screen nitro button<br>
+      You're always flat out. Smashing cars is fun but wears down your ride and raises
+      your <b>wanted level</b>: the more carnage, the more police swarm in.<br>
+      Watch the <b>car meter</b>: grab ✚ repairs, and don't let cops slide you off the road.
+    </div>
+    <a class="backlink" href="/games/">← All games</a>
+  </div>
+
+  <div class="screen hidden" id="screen-pause">
+    <div class="title" style="font-size: clamp(26px, 6vw, 40px);">Paused</div>
+    <button class="btn" id="btn-resume">Resume</button>
+    <button class="btn ghost" id="btn-restart-p">Restart</button>
+    <button class="btn ghost" id="btn-quit-p">Quit to Menu</button>
+    <div class="toggles">
+      <button class="tog" id="tog-music-2">♪ Music</button>
+      <button class="tog" id="tog-sfx-2">🔊 Sound FX</button>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="screen-over">
+    <div class="px" id="over-title" style="color: var(--danger); letter-spacing: 4px; font-size: 20px;">Wrecked</div>
+    <div id="over-score">0</div>
+    <div id="over-newbest">★ NEW BEST SCORE ★</div>
+    <div class="stats-grid">
+      <div class="stat"><div class="v" id="o-dist">0 km</div><div class="k">Distance</div></div>
+      <div class="stat"><div class="v" id="o-time">0:00</div><div class="k">Survived</div></div>
+      <div class="stat"><div class="v" id="o-topspeed">0</div><div class="k">Top speed</div></div>
+      <div class="stat"><div class="v" id="o-misses">0</div><div class="k">Near misses</div></div>
+      <div class="stat"><div class="v" id="o-chases">0</div><div class="k">Chases escaped</div></div>
+      <div class="stat"><div class="v" id="o-cops">0</div><div class="k">Cops wrecked</div></div>
+      <div class="stat"><div class="v" id="o-best">0</div><div class="k">Best score</div></div>
+    </div>
+    <button class="btn" id="btn-restart-o">↻ &nbsp;Restart</button>
+    <button class="btn ghost" id="btn-menu-o">Main Menu</button>
+    <a class="backlink" href="/games/">← All games</a>
+  </div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

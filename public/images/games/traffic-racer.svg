@@ -1,0 +1,95 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Traffic Racer">
+  <defs>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c6b38"/>
+      <stop offset="1" stop-color="#1e4f28"/>
+    </linearGradient>
+    <linearGradient id="playerBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a0b0f"/>
+      <stop offset="0.5" stop-color="#2e323d"/>
+      <stop offset="1" stop-color="#0a0b0f"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4ae0ff"/>
+      <stop offset="1" stop-color="#4ae0ff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#grass)"/>
+  <!-- roadside trees -->
+  <circle cx="22" cy="60" r="20" fill="#245c2e"/>
+  <circle cx="380" cy="150" r="24" fill="#245c2e"/>
+  <circle cx="18" cy="300" r="16" fill="#2a6836"/>
+  <circle cx="386" cy="330" r="18" fill="#245c2e"/>
+
+  <!-- road -->
+  <rect x="52" y="0" width="296" height="400" fill="#43474f"/>
+  <rect x="52" y="0" width="5" height="400" fill="#e8e8e8"/>
+  <rect x="343" y="0" width="5" height="400" fill="#e8e8e8"/>
+  <!-- lane dashes -->
+  <g stroke="#dfe3ea" stroke-width="6" stroke-dasharray="26 24">
+    <path d="M126 -10V410"/>
+    <path d="M200 -30V410"/>
+    <path d="M274 -18V410"/>
+  </g>
+
+  <!-- speed streaks -->
+  <g stroke="#ffffff" stroke-opacity="0.28" stroke-width="4" stroke-linecap="round">
+    <path d="M92 40V110"/>
+    <path d="M312 190V265"/>
+    <path d="M240 20V70"/>
+  </g>
+
+  <!-- traffic: blue car top-left -->
+  <g transform="translate(126 84)">
+    <rect x="-26" y="-42" width="52" height="84" rx="9" fill="#4a7be8" stroke="#111826" stroke-opacity="0.4" stroke-width="2"/>
+    <rect x="-18" y="-26" width="36" height="16" rx="4" fill="#182031"/>
+    <rect x="-18" y="12" width="36" height="13" rx="4" fill="#182031"/>
+    <rect x="-19" y="36" width="11" height="5" fill="#ff2a2a"/>
+    <rect x="8" y="36" width="11" height="5" fill="#ff2a2a"/>
+  </g>
+  <!-- traffic: truck right -->
+  <g transform="translate(302 150)">
+    <rect x="-29" y="-78" width="58" height="156" rx="8" fill="#b8bdc9" stroke="#111826" stroke-opacity="0.4" stroke-width="2"/>
+    <rect x="-27" y="-74" width="54" height="34" rx="6" fill="#4ac47e"/>
+    <rect x="-27" y="-36" width="54" height="4" fill="#111826" fill-opacity="0.2"/>
+  </g>
+  <!-- police car chasing from bottom-left -->
+  <g transform="translate(120 356) rotate(-4)">
+    <rect x="-27" y="-44" width="54" height="88" rx="9" fill="#f2f4f8" stroke="#111826" stroke-opacity="0.4" stroke-width="2"/>
+    <rect x="-27" y="-6" width="54" height="26" fill="#20242e"/>
+    <rect x="-27" y="0" width="54" height="9" fill="#2a56c8"/>
+    <rect x="-19" y="-28" width="38" height="15" rx="4" fill="#182031"/>
+    <rect x="-17" y="-8" width="16" height="7" fill="#ff3048"/>
+    <rect x="1" y="-8" width="16" height="7" fill="#2a66ff"/>
+    <circle cx="0" cy="-6" r="34" fill="#ff3048" opacity="0.18"/>
+  </g>
+
+  <!-- player supercar with nitro flames -->
+  <g transform="translate(228 300) rotate(3)">
+    <polygon points="-8,54 8,54 0,96" fill="url(#flame)"/>
+    <polygon points="-24,54 -8,54 -16,90" fill="url(#flame)"/>
+    <polygon points="8,54 24,54 16,90" fill="url(#flame)"/>
+    <!-- wedge body -->
+    <path d="M-10,-52 L10,-52 Q32,-30 32,-4 L32,40 Q32,52 22,52 L-22,52 Q-32,52 -32,40 L-32,-4 Q-32,-30 -10,-52 Z"
+          fill="url(#playerBody)" stroke="#3c1e00" stroke-opacity="0.5" stroke-width="2"/>
+    <!-- cockpit with cyan glow rim -->
+    <polygon points="0,-26 26,-2 20,26 -20,26 -26,-2" fill="#05070c" stroke="#4ae0ff" stroke-opacity="0.6" stroke-width="1.5"/>
+    <polygon points="0,-20 18,-2 -18,-2" fill="#5a82c8" opacity="0.35"/>
+    <!-- rear wing + exhausts -->
+    <rect x="-30" y="40" width="60" height="6" fill="#1a1c22"/>
+    <rect x="-18" y="46" width="36" height="4" fill="#33363f"/>
+    <!-- headlights + taillights -->
+    <polygon points="-26,-44 -14,-42 -18,-36" fill="#fff6d0"/>
+    <polygon points="26,-44 14,-42 18,-36" fill="#fff6d0"/>
+    <rect x="-26" y="32" width="14" height="4" fill="#ff3020"/>
+    <rect x="12" y="32" width="14" height="4" fill="#ff3020"/>
+  </g>
+
+  <!-- near-miss spark -->
+  <g fill="#4ae0ff">
+    <circle cx="186" cy="252" r="4"/>
+    <circle cx="176" cy="262" r="2.5"/>
+    <circle cx="194" cy="242" r="2.5"/>
+  </g>
+</svg>
