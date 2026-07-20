@@ -22,6 +22,7 @@ const GAMES: Record<string, { key: string; maxScore: number }> = {
   fish: { key: "top10", maxScore: 1_000_000 },
   tetris: { key: "top10:tetris", maxScore: 5_000_000 },
   chicken: { key: "top10:chicken", maxScore: 5_000_000 },
+  brick: { key: "top10:brick", maxScore: 5_000_000 },
 };
 
 const MAX_ENTRIES = 10;

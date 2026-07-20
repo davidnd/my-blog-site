@@ -1,0 +1,85 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Brick Breaker">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#171a34"/>
+      <stop offset="1" stop-color="#0b0d1a"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="0.35" cy="0.35" r="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#8fa0e0"/>
+    </radialGradient>
+    <linearGradient id="pad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#aab6e8"/>
+      <stop offset="1" stop-color="#5b6ab0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="400" height="400" fill="url(#sky)"/>
+
+  <!-- faint grid -->
+  <g stroke="#6e82ff" stroke-opacity="0.06" stroke-width="1">
+    <path d="M50 0V400M100 0V400M150 0V400M200 0V400M250 0V400M300 0V400M350 0V400"/>
+    <path d="M0 50H400M0 100H400M0 150H400M0 200H400M0 250H400M0 300H400M0 350H400"/>
+  </g>
+
+  <!-- brick rows, one already half smashed -->
+  <g stroke="#0b0d1a" stroke-width="3">
+    <rect x="18"  y="34" width="58" height="26" fill="#cd5c8a"/>
+    <rect x="80"  y="34" width="58" height="26" fill="#cd5c8a"/>
+    <rect x="142" y="34" width="58" height="26" fill="#cd5c8a"/>
+    <rect x="204" y="34" width="58" height="26" fill="#cd5c8a"/>
+    <rect x="266" y="34" width="58" height="26" fill="#cd5c8a"/>
+    <rect x="328" y="34" width="58" height="26" fill="#cd5c8a"/>
+
+    <rect x="18"  y="66" width="58" height="26" fill="#d9865e"/>
+    <rect x="80"  y="66" width="58" height="26" fill="#d9865e"/>
+    <rect x="204" y="66" width="58" height="26" fill="#e2574f"/>
+    <rect x="266" y="66" width="58" height="26" fill="#d9865e"/>
+    <rect x="328" y="66" width="58" height="26" fill="#d9865e"/>
+
+    <rect x="18"  y="98" width="58" height="26" fill="#d5c36f"/>
+    <rect x="80"  y="98" width="58" height="26" fill="#9aa5b8"/>
+    <rect x="266" y="98" width="58" height="26" fill="#b18cc4"/>
+    <rect x="328" y="98" width="58" height="26" fill="#d5c36f"/>
+
+    <rect x="18"  y="130" width="58" height="26" fill="#8fbf80"/>
+    <rect x="328" y="130" width="58" height="26" fill="#8fbf80"/>
+  </g>
+
+  <!-- markings on special bricks -->
+  <text x="233" y="87" font-family="Courier New, monospace" font-size="20" font-weight="bold" fill="#1a0d0d" text-anchor="middle">*</text>
+  <text x="295" y="117" font-family="Courier New, monospace" font-size="17" font-weight="bold" fill="#241a2e" text-anchor="middle">?</text>
+
+  <!-- debris from the broken area -->
+  <g fill="#d5c36f">
+    <rect x="176" y="112" width="8" height="8" transform="rotate(18 180 116)"/>
+    <rect x="210" y="128" width="6" height="6" transform="rotate(-24 213 131)"/>
+    <rect x="156" y="140" width="7" height="7" transform="rotate(40 159 143)"/>
+  </g>
+  <g fill="#8fbf80">
+    <rect x="120" y="152" width="7" height="7" transform="rotate(-15 123 155)"/>
+    <rect x="246" y="150" width="8" height="8" transform="rotate(30 250 154)"/>
+  </g>
+
+  <!-- ball trail and ball heading into the gap -->
+  <circle cx="150" cy="252" r="6" fill="#cdd6ff" opacity="0.18"/>
+  <circle cx="162" cy="232" r="7" fill="#cdd6ff" opacity="0.3"/>
+  <circle cx="175" cy="210" r="8" fill="#cdd6ff" opacity="0.45"/>
+  <circle cx="190" cy="186" r="11" fill="url(#ball)"/>
+
+  <!-- falling power-up capsule -->
+  <g>
+    <rect x="286" y="210" width="62" height="30" rx="15" fill="#8fbf80" stroke="#0b0d1a" stroke-width="3"/>
+    <text x="317" y="231" font-family="Courier New, monospace" font-size="15" font-weight="bold" fill="#10122a" text-anchor="middle">WIDE</text>
+  </g>
+
+  <!-- hearts: the 3 lives -->
+  <g fill="#ff5f8f" font-family="Courier New, monospace" font-size="26" font-weight="bold">
+    <text x="24" y="388">&#9829;</text>
+    <text x="52" y="388">&#9829;</text>
+    <text x="80" y="388">&#9829;</text>
+  </g>
+
+  <!-- paddle -->
+  <rect x="130" y="330" width="140" height="20" rx="10" fill="url(#pad)" stroke="#0b0d1a" stroke-width="3"/>
+</svg>
