@@ -165,7 +165,7 @@
     <button id="btn-mute-hud" title="Mute (M)">SND ON</button>
   </div>
   <div id="board-wrap"><canvas id="board" width="560" height="700"></canvas></div>
-  <div id="hint" class="px">Mouse / &#8592;&#8594; move &middot; Click / Space launch &middot; P pause &middot; M mute</div>
+  <div id="hint" class="px">Mouse / &#8592;&#8594; move (cursor locks to arena) &middot; Click / Space launch &middot; P pause &middot; M mute</div>
 </div>
 
 <!-- Main menu -->
@@ -393,6 +393,7 @@ function newGame() {
   score = 0; lives = 3; level = 1; loopCount = 0; speedBonus = 0;
   startLevel();
   setState('playing');
+  lockPointer(); // called from a click/keypress, so the gesture allows capture
 }
 
 function startLevel() {
@@ -457,6 +458,9 @@ function setState(s) {
   $('menu').classList.toggle('hidden', s !== 'menu');
   $('pause').classList.toggle('hidden', s !== 'paused');
   $('gameover').classList.toggle('hidden', s !== 'over');
+  if (s !== 'playing' && document.exitPointerLock && document.pointerLockElement) {
+    document.exitPointerLock(); // give the cursor back for menus
+  }
   Music.play('theme');
 }
 
@@ -805,22 +809,45 @@ function canvasX(e) {
   const r = cv.getBoundingClientRect();
   return (e.clientX - r.left) / r.width * W;
 }
-// track the pointer across the whole window so leaving the arena never drops control
+// Pointer lock: while playing, the OS cursor is captured by the arena so it can
+// never wander off and drop control. Paddle rides raw mouse motion (movementX).
+// Esc or pausing releases it; unlocked play falls back to absolute tracking.
+const locked = () => document.pointerLockElement === cv;
+function lockPointer() {
+  if (!cv.requestPointerLock || locked()) return;
+  try {
+    const p = cv.requestPointerLock({ unadjustedMovement: true });
+    if (p && p.catch) p.catch(() => { try { cv.requestPointerLock(); } catch {} });
+  } catch { try { cv.requestPointerLock(); } catch {} }
+}
+document.addEventListener('pointerlockchange', () => {
+  if (!locked() && state === 'playing') {
+    addFloat(W / 2, H - 120, 'CURSOR FREE: CLICK TO RECAPTURE', '#8b8fbb');
+  }
+});
+
 window.addEventListener('pointermove', e => {
   if (state !== 'playing' || !paddle) return;
-  paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
+  if (locked()) {
+    const r = cv.getBoundingClientRect();
+    paddle.x += e.movementX * (W / r.width); // raw motion, CSS px -> arena units
+  } else {
+    paddle.x = canvasX(e);
+  }
+  paddle.x = clamp(paddle.x, WALL + paddleW() / 2, W - WALL - paddleW() / 2);
 });
 window.addEventListener('pointerdown', e => {
   if (state !== 'playing' || !paddle) return;
   if (e.target.closest && e.target.closest('button, a, input, .overlay, #hud')) return;
   e.preventDefault();
-  paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
+  if (!locked()) paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
+  lockPointer();
   serve();
 });
 
 function togglePause() {
   if (state === 'playing') setState('paused');
-  else if (state === 'paused') { lastTime = performance.now(); setState('playing'); }
+  else if (state === 'paused') { lastTime = performance.now(); setState('playing'); lockPointer(); }
 }
 
 $('btn-start').onclick = newGame;
