@@ -815,10 +815,12 @@ function canvasX(e) {
 const locked = () => document.pointerLockElement === cv;
 function lockPointer() {
   if (!cv.requestPointerLock || locked()) return;
+  // no unadjustedMovement: keep the OS pointer acceleration so the paddle
+  // moves exactly as far as the cursor would have
   try {
-    const p = cv.requestPointerLock({ unadjustedMovement: true });
-    if (p && p.catch) p.catch(() => { try { cv.requestPointerLock(); } catch {} });
-  } catch { try { cv.requestPointerLock(); } catch {} }
+    const p = cv.requestPointerLock();
+    if (p && p.catch) p.catch(() => {});
+  } catch {}
 }
 document.addEventListener('pointerlockchange', () => {
   if (!locked() && state === 'playing') {
