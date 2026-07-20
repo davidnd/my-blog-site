@@ -118,9 +118,9 @@
   }
   .legend > div { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
   .legend .cap {
-    flex: 0 0 46px; text-align: center;
-    font-weight: bold; font-size: 10px; letter-spacing: 0;
-    border-radius: 7px; border: 1px solid; padding: 2px 0; margin-top: 1px;
+    flex: 0 0 34px; text-align: center;
+    font-weight: bold; font-size: 13px; line-height: 1; letter-spacing: 0;
+    border-radius: 9px; border: 1px solid; padding: 3px 0;
   }
 
   table.lb { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 12.5px; }
@@ -165,7 +165,7 @@
     <button id="btn-mute-hud" title="Mute (M)">SND ON</button>
   </div>
   <div id="board-wrap"><canvas id="board" width="560" height="700"></canvas></div>
-  <div id="hint" class="px">Mouse / &#8592;&#8594; move &middot; Click / Space launch + fire &middot; P pause &middot; M mute</div>
+  <div id="hint" class="px">Mouse / &#8592;&#8594; move &middot; Click / Space launch &middot; P pause &middot; M mute</div>
 </div>
 
 <!-- Main menu -->
@@ -264,29 +264,29 @@ const TIERS = ['#cd5c8a', '#d9865e', '#d5c36f', '#8fbf80', '#6fa7cb', '#9a8ccb']
 
 // ============================================================ power-ups
 const POWERS = {
-  wide:  { label: 'WIDE',  color: '#8fbf80', good: 1, w: 3 },
-  multi: { label: 'MULTI', color: '#6fc3cb', good: 1, w: 3 },
-  laser: { label: 'LASER', color: '#ff6f6f', good: 1, w: 2 },
-  catch: { label: 'CATCH', color: '#d5c36f', good: 1, w: 2 },
-  fire:  { label: 'FIRE',  color: '#f09b4e', good: 1, w: 2 },
-  slow:  { label: 'SLOW',  color: '#7f96c9', good: 1, w: 2 },
-  cash:  { label: '$',     color: '#ecc96e', good: 1, w: 2 },
-  life:  { label: '&hearts;', color: '#ff5f8f', good: 1, w: 1 },
-  shrink:{ label: 'SHRK',  color: '#8b8fbb', good: 0, w: 2 },
-  fast:  { label: 'FAST',  color: '#b06fd8', good: 0, w: 2 },
+  wide:  { label: 'WIDE',  icon: '↔',       color: '#8fbf80', good: 1, w: 3 }, // <->
+  multi: { label: 'MULTI', icon: '∴',       color: '#6fc3cb', good: 1, w: 3 }, // three dots
+  turbo: { label: 'TURBO', icon: '»',       color: '#b06fd8', good: 1, w: 3 }, // >>
+  blitz: { label: 'BLITZ', icon: '▲',       color: '#5fe0b0', good: 1, w: 2 }, // up arrow
+  catch: { label: 'CATCH', icon: '◎',       color: '#d5c36f', good: 1, w: 2 }, // bullseye
+  fire:  { label: 'FIRE',  icon: '✶',       color: '#f09b4e', good: 1, w: 2 }, // star
+  slow:  { label: 'SLOW',  icon: '❄',       color: '#7f96c9', good: 1, w: 1 }, // snowflake
+  cash:  { label: '+PTS',  icon: '$',            color: '#ecc96e', good: 1, w: 2 },
+  life:  { label: '+1 LIFE', icon: '♥',     color: '#ff5f8f', good: 1, w: 1 }, // heart
+  shrink:{ label: 'SHRINK', icon: '→←', color: '#8b8fbb', good: 0, w: 2 }, // -><-
 };
 const DROP_CHANCE = 0.22;
 
 // legend on the menu
 $('legend').innerHTML = [
   ['wide', 'wider paddle (stacks)'], ['multi', 'split every ball in three'],
-  ['laser', 'twin lasers, hold fire'], ['catch', 'sticky paddle, aim shots'],
-  ['fire', 'fireball rips through rows'], ['slow', 'calm the balls down'],
+  ['turbo', 'speed surge: 2x points while fast'], ['blitz', 'permanent speed boost, stacks'],
+  ['catch', 'sticky paddle, aim shots'], ['fire', 'fireball rips through rows'],
   ['cash', 'instant bonus points'], ['life', 'extra life (rare!)'],
-  ['shrink', 'narrow paddle. avoid'], ['fast', 'balls speed up. avoid'],
+  ['slow', 'panic brake (rare)'], ['shrink', 'narrow paddle. avoid'],
 ].map(([k, txt]) => {
   const p = POWERS[k];
-  return `<div><span class="cap" style="color:${p.color};border-color:${p.color}">${p.label}</span><span>${txt}</span></div>`;
+  return `<div><span class="cap" style="color:${p.color};border-color:${p.color}">${p.icon}</span><span>${txt}</span></div>`;
 }).join('');
 
 // ============================================================ levels
@@ -374,20 +374,23 @@ const LEVELS = [
 
 // ============================================================ state
 let state = 'menu'; // menu | playing | paused | over
-let bricks, balls, capsules, lasers, parts, floats;
+let bricks, balls, capsules, parts, floats;
 let paddle, score, lives, level, loopCount, breakable;
-let combo, shake, flashT, banner, laserCd, deathT;
+let combo, shake, flashT, banner, deathT, turboT, speedBonus;
 let lastTime;
-score = 0; lives = 3; level = 1; loopCount = 0; combo = 0;
+score = 0; lives = 3; level = 1; loopCount = 0; combo = 0; turboT = 0; speedBonus = 0;
 
 const MAX_LIVES = 6, MAX_BALLS = 12;
 
 function baseSpeed() {
-  return 300 + (level - 1) * 14 + loopCount * 30;
+  return 350 + (level - 1) * 16 + loopCount * 30 + speedBonus;
+}
+function speedCap() {
+  return 640 + loopCount * 40 + speedBonus;
 }
 
 function newGame() {
-  score = 0; lives = 3; level = 1; loopCount = 0;
+  score = 0; lives = 3; level = 1; loopCount = 0; speedBonus = 0;
   startLevel();
   setState('playing');
 }
@@ -420,11 +423,10 @@ function startLevel() {
     }
   });
   paddle = {
-    x: W / 2, baseW: 92, wide: 0, wideT: 0, shrinkT: 0,
-    laserT: 0, catchT: 0,
+    x: W / 2, baseW: 92, wide: 0, wideT: 0, shrinkT: 0, catchT: 0,
   };
-  capsules = []; lasers = []; parts = []; floats = [];
-  combo = 0; shake = 0; flashT = 0; laserCd = 0; deathT = 0;
+  capsules = []; parts = []; floats = [];
+  combo = 0; shake = 0; flashT = 0; deathT = 0; turboT = 0;
   banner = { text: 'LEVEL ' + level, sub: def.name + (loopCount ? ' +' + loopCount : ''), t: 1.6 };
   spawnServeBall();
   updateHud();
@@ -462,7 +464,7 @@ function setState(s) {
 function comboMult() { return Math.min(1 + Math.floor(combo / 4), 5); }
 
 function award(pts, x, y, color) {
-  const m = comboMult();
+  const m = comboMult() * (turboT > 0 ? 2 : 1); // turbo doubles everything
   const total = Math.round(pts * m * (1 + loopCount * 0.5));
   score += total;
   addFloat(x, y, '+' + total + (m > 1 ? ' x' + m : ''), color || '#e9e9f4');
@@ -532,13 +534,13 @@ function pickPower() {
 function dropCapsule(x, y, luckyOnly) {
   let kind = pickPower();
   if (luckyOnly) while (!POWERS[kind].good) kind = pickPower();
-  capsules.push({ x, y, kind, vy: 110, wob: Math.random() * 6.28 });
+  capsules.push({ x, y, kind, vy: 150, wob: Math.random() * 6.28 });
 }
 
 function applyPower(kind) {
   const p = POWERS[kind];
   sfxPickup(p.good);
-  addFloat(paddle.x, PADDLE_Y - 26, p.label.replace('&hearts;', '+1 LIFE'), p.color);
+  addFloat(paddle.x, PADDLE_Y - 26, p.label, p.color);
   switch (kind) {
     case 'wide':
       paddle.wide = Math.min(paddle.wide + 1, 2); paddle.wideT = 20; paddle.shrinkT = 0; break;
@@ -557,11 +559,17 @@ function applyPower(kind) {
       }
       break;
     }
-    case 'laser': paddle.laserT = 12; break;
     case 'catch': paddle.catchT = 15; break;
     case 'fire': balls.forEach(b => b.fireT = 10); break;
-    case 'slow': balls.forEach(b => { b.speed = Math.max(b.speed * 0.7, 190); rescale(b); }); break;
-    case 'fast': balls.forEach(b => { b.speed = Math.min(b.speed * 1.3, 640); rescale(b); }); break;
+    case 'slow': balls.forEach(b => { b.speed = Math.max(b.speed * 0.72, 230); rescale(b); }); break;
+    case 'turbo': // speed surge: +30% for 12s, all points doubled while it lasts
+      turboT = 12;
+      balls.forEach(b => { b.speed = Math.min(b.speed * 1.3, 820); rescale(b); });
+      break;
+    case 'blitz': // permanent speed tier for the rest of the run (stacks to 4)
+      if (speedBonus < 180) speedBonus += 45;
+      balls.forEach(b => { b.speed += 45; rescale(b); });
+      break;
     case 'life':
       if (lives < MAX_LIVES) { lives++; sfxLife(); } else award(2000, paddle.x, PADDLE_Y - 40, p.color);
       break;
@@ -591,39 +599,19 @@ function update(dt) {
   if (paddle.wideT > 0 && (paddle.wideT -= dt) <= 0) paddle.wide = 0;
   if (paddle.shrinkT > 0) paddle.shrinkT -= dt;
   if (paddle.catchT > 0) paddle.catchT -= dt;
-  if (paddle.laserT > 0) paddle.laserT -= dt;
+  if (turboT > 0 && (turboT -= dt) <= 0) { // surge over: settle back down
+    balls.forEach(b => { b.speed = Math.max(b.speed / 1.3, baseSpeed()); rescale(b); });
+    updateHud();
+  }
   if (shake > 0) shake = Math.max(0, shake - dt * 30);
   if (flashT > 0) flashT -= dt;
   if (banner && (banner.t -= dt) <= 0) banner = null;
-  if (laserCd > 0) laserCd -= dt;
   if (deathT > 0) { deathT -= dt; if (deathT <= 0) respawn(); }
 
   // keyboard paddle
   if (keys.left) paddle.x -= 520 * dt;
   if (keys.right) paddle.x += 520 * dt;
   paddle.x = clamp(paddle.x, WALL + paddleW() / 2, W - WALL - paddleW() / 2);
-
-  // autofire lasers
-  if (paddle.laserT > 0 && firing && laserCd <= 0) {
-    const hw = paddleW() / 2 - 8;
-    lasers.push({ x: paddle.x - hw, y: PADDLE_Y - 8 }, { x: paddle.x + hw, y: PADDLE_Y - 8 });
-    laserCd = 0.22;
-    sfxLaser();
-  }
-
-  // lasers
-  for (const l of lasers.slice()) {
-    l.y -= 620 * dt;
-    if (l.y < TOP - 20) { lasers.splice(lasers.indexOf(l), 1); continue; }
-    for (const b of bricks) {
-      if (l.x > b.x && l.x < b.x + BW && l.y > b.y && l.y < b.y + BH) {
-        lasers.splice(lasers.indexOf(l), 1);
-        burst(l.x, b.y + BH, '#ff6f6f', 5);
-        damageBrick(b, 1, false);
-        break;
-      }
-    }
-  }
 
   // balls
   for (const b of balls.slice()) {
@@ -646,7 +634,7 @@ function update(dt) {
 
   // capsules
   for (const c of capsules.slice()) {
-    c.y += c.vy * dt; c.vy += 120 * dt; c.wob += dt * 5;
+    c.y += c.vy * dt; c.vy += 170 * dt; c.wob += dt * 5;
     const hw = paddleW() / 2;
     if (c.y > PADDLE_Y - 8 && c.y < PADDLE_Y + 18 && Math.abs(c.x - paddle.x) < hw + 12) {
       capsules.splice(capsules.indexOf(c), 1);
@@ -696,7 +684,7 @@ function stepBall(b, dt) {
     }
     const rel = clamp((b.x - paddle.x) / hw, -1, 1);
     const angle = rel * 1.05 - Math.PI / 2; // up to ~60 degrees
-    b.speed = Math.min(b.speed + 6, 560 + loopCount * 40); // creeping difficulty
+    b.speed = Math.min(b.speed + 9, speedCap()); // creeping difficulty
     b.vx = Math.cos(angle) * b.speed;
     b.vy = Math.sin(angle) * b.speed;
     b.y = PADDLE_Y - BALL_R;
@@ -735,9 +723,10 @@ function loseLife() {
   flashT = 0.15;
   sfxLoseLife();
   updateHud();
-  // dying clears your toys: classic breaker rules
-  paddle.laserT = 0; paddle.catchT = 0; paddle.wideT = 0; paddle.wide = 0; paddle.shrinkT = 0;
-  capsules = []; lasers = [];
+  // dying clears your toys: classic breaker rules (blitz speed tiers survive)
+  paddle.catchT = 0; paddle.wideT = 0; paddle.wide = 0; paddle.shrinkT = 0;
+  turboT = 0;
+  capsules = [];
   if (lives <= 0) { gameOver(); return; }
   deathT = 0.9;
   addFloat(W / 2, H / 2, lives === 1 ? 'LAST LIFE!' : 'BALL LOST', '#ff5f8f');
@@ -775,9 +764,10 @@ function updateHud() {
 
   const chips = [];
   if (paddle) {
+    if (turboT > 0) chips.push(['» 2X', POWERS.turbo.color]);
+    if (speedBonus > 0) chips.push(['▲' + (speedBonus / 45), POWERS.blitz.color]);
     if (paddle.wideT > 0) chips.push(['WIDE', POWERS.wide.color]);
-    if (paddle.shrinkT > 0) chips.push(['SHRK', POWERS.shrink.color]);
-    if (paddle.laserT > 0) chips.push(['LASER', POWERS.laser.color]);
+    if (paddle.shrinkT > 0) chips.push(['SHRINK', POWERS.shrink.color]);
     if (paddle.catchT > 0) chips.push(['CATCH', POWERS.catch.color]);
     if (balls && balls.some(b => b.fireT > 0)) chips.push(['FIRE', POWERS.fire.color]);
   }
@@ -787,11 +777,10 @@ function updateHud() {
 
 // ============================================================ input
 const keys = { left: false, right: false };
-let firing = false;
 
-function serveOrFire() {
+function serve() {
   const stuck = balls.filter(b => b.stuck);
-  if (stuck.length) { stuck.forEach(launch); return; }
+  if (stuck.length) stuck.forEach(launch);
 }
 
 window.addEventListener('keydown', e => {
@@ -804,13 +793,12 @@ window.addEventListener('keydown', e => {
   if (state !== 'playing') return;
   if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = true;
   else if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = true;
-  else if (k === ' ') { firing = true; if (!e.repeat) serveOrFire(); }
+  else if (k === ' ') { if (!e.repeat) serve(); }
 });
 window.addEventListener('keyup', e => {
   const k = e.key;
   if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
   if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
-  if (k === ' ') firing = false;
 });
 
 function canvasX(e) {
@@ -827,10 +815,8 @@ window.addEventListener('pointerdown', e => {
   if (e.target.closest && e.target.closest('button, a, input, .overlay, #hud')) return;
   e.preventDefault();
   paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
-  firing = true;
-  serveOrFire();
+  serve();
 });
-window.addEventListener('pointerup', () => { firing = false; });
 
 function togglePause() {
   if (state === 'playing') setState('paused');
@@ -961,7 +947,6 @@ const sfxGold = () => beep(1100, 0.03, 'triangle', 0.04);
 const sfxBoom = () => { slide(300, 40, 0.35, 'sawtooth', 0.16); beep(90, 0.2, 'triangle', 0.12, 0.02); };
 const sfxLaunch = () => slide(200, 600, 0.12, 'square', 0.06);
 const sfxCatch = () => beep(440, 0.08, 'triangle', 0.08);
-const sfxLaser = () => slide(1400, 500, 0.08, 'sawtooth', 0.04);
 const sfxPickup = good => good
   ? [660, 880, 1100].forEach((f, i) => beep(f, 0.06, 'square', 0.06, i * 0.05))
   : slide(500, 180, 0.25, 'sawtooth', 0.08);
@@ -1120,14 +1105,10 @@ function render() {
     roundRect(c.x - 17 + wob, c.y - 9, 34, 18, 8);
     ctx.fill(); ctx.stroke();
     ctx.fillStyle = p.good ? '#10122a' : p.color;
-    ctx.font = 'bold 9px Courier New';
+    ctx.font = 'bold 13px Courier New';
     ctx.textAlign = 'center';
-    ctx.fillText(p.label.replace('&hearts;', '♥'), c.x + wob, c.y + 3.5);
+    ctx.fillText(p.icon, c.x + wob, c.y + 4.5);
   }
-
-  // lasers
-  ctx.fillStyle = '#ff6f6f';
-  for (const l of lasers) { ctx.fillRect(l.x - 1.5, l.y - 10, 3, 12); }
 
   // paddle
   const hw = paddleW() / 2;
@@ -1137,11 +1118,6 @@ function render() {
   ctx.fillStyle = pgrad;
   roundRect(paddle.x - hw, PADDLE_Y, hw * 2, 12, 6);
   ctx.fill();
-  if (paddle.laserT > 0) {
-    ctx.fillStyle = '#ff6f6f';
-    ctx.fillRect(paddle.x - hw + 4, PADDLE_Y - 5, 6, 6);
-    ctx.fillRect(paddle.x + hw - 10, PADDLE_Y - 5, 6, 6);
-  }
 
   // balls with trails
   for (const b of balls) {
