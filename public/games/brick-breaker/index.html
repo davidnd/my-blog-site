@@ -66,7 +66,6 @@
   #board-wrap { position: relative; }
   #board {
     display: block;
-    width: min(94vw, 560px);
     background: #080a16;
     border: 2px solid var(--line);
     border-radius: 8px;
@@ -113,14 +112,15 @@
 
   /* power-up legend on the menu */
   .legend {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 22px;
     text-align: left; font-size: 11px; color: var(--dim);
-    margin: 0 auto 14px; max-width: 380px; line-height: 1.6;
+    margin: 0 auto 14px; max-width: 400px;
   }
+  .legend > div { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
   .legend .cap {
-    display: inline-block; width: 26px; text-align: center;
+    flex: 0 0 46px; text-align: center;
     font-weight: bold; font-size: 10px; letter-spacing: 0;
-    border-radius: 7px; border: 1px solid; margin-right: 6px; padding: 1px 0;
+    border-radius: 7px; border: 1px solid; padding: 2px 0; margin-top: 1px;
   }
 
   table.lb { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 12.5px; }
@@ -223,6 +223,24 @@ const rand = (a, b) => a + Math.random() * (b - a);
 const W = 560, H = 700;
 const cv = $('board'), ctx = cv.getContext('2d');
 
+// scale the arena to the viewport; render at devicePixelRatio so big screens stay crisp
+let SCALE = 1;
+function fit() {
+  const availH = window.innerHeight - 110; // room for hud + hint + gaps
+  const availW = window.innerWidth - 24;
+  const s = clamp(Math.min(availH / H, availW / W), 0.45, 2.4);
+  const cssW = Math.round(W * s);
+  cv.style.width = cssW + 'px';
+  cv.style.height = Math.round(H * s) + 'px';
+  const dpr = window.devicePixelRatio || 1;
+  SCALE = s * dpr;
+  cv.width = Math.round(W * SCALE);
+  cv.height = Math.round(H * SCALE);
+  $('hud').style.width = cssW + 'px';
+}
+window.addEventListener('resize', fit);
+fit();
+
 // bricks
 const COLS = 12, MAXROWS = 15;
 const WALL = 10, TOP = 44, GAP = 3;
@@ -268,7 +286,7 @@ $('legend').innerHTML = [
   ['shrink', 'narrow paddle. avoid'], ['fast', 'balls speed up. avoid'],
 ].map(([k, txt]) => {
   const p = POWERS[k];
-  return `<div><span class="cap" style="color:${p.color};border-color:${p.color}">${p.label}</span>${txt}</div>`;
+  return `<div><span class="cap" style="color:${p.color};border-color:${p.color}">${p.label}</span><span>${txt}</span></div>`;
 }).join('');
 
 // ============================================================ levels
@@ -799,13 +817,15 @@ function canvasX(e) {
   const r = cv.getBoundingClientRect();
   return (e.clientX - r.left) / r.width * W;
 }
-cv.addEventListener('pointermove', e => {
+// track the pointer across the whole window so leaving the arena never drops control
+window.addEventListener('pointermove', e => {
   if (state !== 'playing' || !paddle) return;
   paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
 });
-cv.addEventListener('pointerdown', e => {
-  e.preventDefault();
+window.addEventListener('pointerdown', e => {
   if (state !== 'playing' || !paddle) return;
+  if (e.target.closest && e.target.closest('button, a, input, .overlay, #hud')) return;
+  e.preventDefault();
   paddle.x = clamp(canvasX(e), WALL + paddleW() / 2, W - WALL - paddleW() / 2);
   firing = true;
   serveOrFire();
@@ -1067,6 +1087,7 @@ function drawBrick(b) {
 }
 
 function render() {
+  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0); // logical 560x700 coords at any resolution
   ctx.save();
   if (shake > 0.3) ctx.translate(rand(-shake, shake) * 0.5, rand(-shake, shake) * 0.5);
   ctx.clearRect(-20, -20, W + 40, H + 40);
