@@ -7,7 +7,9 @@ Astro blog. Posts are `.mdx` in `src/content/blog/`. Frontmatter schema lives in
 ## Author voice
 - Prose, not bullet lists, in the body. Short, declarative, opinionated.
 - **No em-dashes.** Use colons, semicolons, commas, periods. (Every existing post has zero.)
-- `**bold**` is used to highlight the one key phrase in a paragraph.
+- `**bold**` is rare. At most one or two phrases in an entire post, reserved for the
+  line the piece actually turns on. Never one per paragraph: that reads as shouting
+  and kills the emphasis it's meant to create. Most paragraphs should have none.
 - Straight quotes, second person ("we"/"our").
 
 ## Diagrams — the house style (reuse this for the next post)
