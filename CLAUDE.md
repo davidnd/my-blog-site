@@ -5,12 +5,19 @@ Astro blog. Posts are `.mdx` in `src/content/blog/`. Frontmatter schema lives in
 `updatedDate`, `tags`, `draft`, `comments`, `reactions`.
 
 ## Author voice
-- Prose, not bullet lists, in the body. Short, declarative, opinionated.
-- **No em-dashes.** Use colons, semicolons, commas, periods. (Every existing post has zero.)
-- `**bold**` is rare. At most one or two phrases in an entire post, reserved for the
-  line the piece actually turns on. Never one per paragraph: that reads as shouting
-  and kills the emphasis it's meant to create. Most paragraphs should have none.
-- Straight quotes, second person ("we"/"our").
+Read `src/content/blog/are-we-cooked.mdx` before drafting anything personal. David
+confirmed it sounds like him. Match it by ear. Don't reverse-engineer it into rules
+and then follow them; that produces something that ticks every box and still sounds
+like nobody.
+
+Two mechanical house facts, not style advice:
+
+- No em-dashes in a post. Every existing post has zero.
+- Prose in the body, not bullet lists. Straight quotes.
+
+Everything else is judgement. Emphasis, structure, length, headings or none, when a
+word is worth bolding: decide it per post, and if it feels like following a rule
+rather than writing, it's probably wrong.
 
 ## Diagrams — the house style (reuse this for the next post)
 The blog has **no Mermaid rendering** wired up (only `remarkReadingTime` in
