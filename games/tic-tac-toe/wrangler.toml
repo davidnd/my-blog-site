@@ -6,10 +6,12 @@ compatibility_date = "2026-09-11"
 # out of public/games/tic-tac-toe/, so a route claiming just this one path is
 # enough, and it takes precedence over Pages on the same zone.
 #
-# Uncomment after `wrangler deploy` has created the Worker once:
-# routes = [
-#   { pattern = "davidnd.dev/games/tic-tac-toe/ws", zone_name = "davidnd.dev" }
-# ]
+# The trailing * is load-bearing. Without it the pattern matches only the bare
+# path, and every real connection carries a query string (?room=..&player=..),
+# so it would fall through to Pages, get HTML back and fail the upgrade.
+routes = [
+  { pattern = "davidnd.dev/games/tic-tac-toe/ws*", zone_name = "davidnd.dev" }
+]
 
 [[durable_objects.bindings]]
 name = "ROOM"
