@@ -1,0 +1,35 @@
+{
+  "name": "axon-tictactoe",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "start": "node src/server/index.ts",
+    "test": "node --test 'tests/*.test.ts'",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy",
+    "test:cf": "node --test 'tests/cf/*.test.ts'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260911.1",
+    "@types/node": "^22.20.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.2",
+    "vite": "^8.3.0",
+    "wrangler": "^4.131.1"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

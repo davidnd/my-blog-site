@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "PORT=\"${PORT:-8790}\" DB_PATH=:memory: node src/server/index.ts"],
+      "port": 8790,
+      "autoPort": true
+    }
+  ]
+}

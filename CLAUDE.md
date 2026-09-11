@@ -4,6 +4,16 @@ Astro blog. Posts are `.mdx` in `src/content/blog/`. Frontmatter schema lives in
 `src/content.config.ts`: `title`, `description`, `pubDate` (not `date`), optional
 `updatedDate`, `tags`, `draft`, `comments`, `reactions`.
 
+## Games
+Games live in `public/games/<slug>/` as self-contained HTML, listed in
+`src/pages/games/index.astro` with a 400x400 thumbnail in `public/images/games/`.
+
+Tic Tac Toe is the exception: it is multiplayer, so it has source and a server in
+`games/tic-tac-toe/` and its client is *built* into `public/games/tic-tac-toe/`.
+Read `games/tic-tac-toe/README.md` before touching it. The Astro build does not
+build it; the output is committed. The server is a Cloudflare Worker with Durable
+Objects, deployed separately from Pages.
+
 ## Author voice
 Read `src/content/blog/are-we-cooked.mdx` before drafting anything personal. David
 confirmed it sounds like him. Match it by ear. Don't reverse-engineer it into rules

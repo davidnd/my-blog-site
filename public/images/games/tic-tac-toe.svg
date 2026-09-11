@@ -1,0 +1,30 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tic Tac Toe">
+  <rect width="400" height="400" fill="#f4efe4"/>
+
+  <!-- the winning run, highlighted the way the board does it -->
+  <g fill="#e8dfa0">
+    <rect x="44" y="44" width="104" height="104"/>
+    <rect x="148" y="148" width="104" height="104"/>
+    <rect x="252" y="252" width="104" height="104"/>
+  </g>
+
+  <!-- grid: inner rules, then the frame -->
+  <g stroke="#b8ae99" stroke-width="2">
+    <path d="M148 44V356M252 44V356M44 148H356M44 252H356"/>
+  </g>
+  <rect x="44" y="44" width="312" height="312" fill="none" stroke="#23201b" stroke-width="5"/>
+
+  <!-- X on the diagonal -->
+  <g stroke="#1f4f82" stroke-width="15" stroke-linecap="round" fill="none">
+    <path d="M72 72L120 120M120 72L72 120"/>
+    <path d="M176 176L224 224M224 176L176 224"/>
+    <path d="M280 280L328 328M328 280L280 328"/>
+  </g>
+
+  <!-- O elsewhere -->
+  <g stroke="#9b2f2f" stroke-width="15" fill="none">
+    <circle cx="200" cy="96" r="30"/>
+    <circle cx="304" cy="96" r="30"/>
+    <circle cx="96" cy="200" r="30"/>
+  </g>
+</svg>

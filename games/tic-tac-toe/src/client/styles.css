@@ -1,0 +1,332 @@
+:root {
+  --paper: #f4efe4;
+  --ink: #23201b;
+  --line: #b8ae99;
+  --x: #1f4f82;
+  --o: #9b2f2f;
+  --win: #e8dfa0;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Top-aligned, so the lobby, the searching screen and the board all put the
+     title in the same place instead of short screens floating to the middle. */
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.meta {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6b6355;
+}
+
+.status {
+  margin: 0;
+  font-size: 1.05rem;
+  min-height: 1.5rem;
+}
+
+.status.over {
+  font-weight: 700;
+}
+
+.error {
+  margin: 0;
+  color: var(--o);
+  font-size: 0.9rem;
+  min-height: 1.25rem;
+}
+
+/* The arena: sized to fill the shorter viewport axis so even 14x14 stays playable. */
+.board {
+  --cell: min(calc((100vw - 3rem) / var(--size)), calc((100vh - 12rem) / var(--size)), 56px);
+  display: grid;
+  grid-template-columns: repeat(var(--size), var(--cell));
+  grid-template-rows: repeat(var(--size), var(--cell));
+  background: var(--line);
+  gap: 1px;
+  padding: 1px;
+  border: 2px solid var(--ink);
+}
+
+.cell {
+  all: unset;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  font-size: calc(var(--cell) * 0.62);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cell:disabled {
+  cursor: default;
+}
+
+.cell:not(:disabled):hover {
+  background: #fffaf0;
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.mark-X {
+  color: var(--x);
+}
+
+.mark-O {
+  color: var(--o);
+}
+
+.winning {
+  background: var(--win);
+}
+
+.timer {
+  display: inline-block;
+  min-width: 3ch;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fffaf0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.timer.urgent {
+  color: var(--o);
+  border-color: var(--o);
+}
+
+.lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: min(24rem, 100%);
+}
+
+.field {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.field legend {
+  padding: 0 0.4rem;
+  font-size: 0.85rem;
+  color: #6b6355;
+}
+
+.choices {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.choice {
+  flex: 1;
+  padding: 0.5rem 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.choice.selected {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #6b6355;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.actions button,
+.joiner button,
+.invite button,
+.actions-row button,
+.panel button {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions button:hover:not(:disabled):not(.primary),
+.joiner button:hover:not(:disabled),
+.invite button:hover,
+.actions-row button:hover:not(.primary),
+.panel button:hover:not(.primary) {
+  background: #fffaf0;
+}
+
+/* The filled button. It is kept out of the shared hover rule above, and
+   `button.primary` outranks the shared `.actions button` rule, so its dark fill
+   and light text can never come apart. */
+button.primary {
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+button.primary:hover:not(:disabled) {
+  background: #3a352d;
+}
+
+.actions button:disabled,
+.joiner button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.joiner label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: #6b6355;
+}
+
+.joiner .row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.joiner input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fffaf0;
+  color: inherit;
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.invite {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: #6b6355;
+}
+
+.invite code {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fffaf0;
+  word-break: break-all;
+}
+
+.invite button {
+  padding: 0.3rem 0.6rem;
+}
+
+.actions-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* In-between screens: queued for a random game, or joining a room. */
+.panel {
+  width: min(24rem, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.75rem 1rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fffaf0;
+  text-align: center;
+}
+
+.panel .hint {
+  margin: 0;
+}
+
+.panel button {
+  margin-top: 0.5rem;
+  min-width: 8rem;
+}
+
+.pulse {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pulse span {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.pulse span:nth-child(2) {
+  animation-delay: 0.8s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse span {
+    animation: none;
+  }
+}
