@@ -220,3 +220,27 @@ test('a public room that frees a seat takes the next queued player', async (t) =
   t.after(() => random.close());
   assert.equal((await random.next('matched')).roomId, room, 'sent to the half-full room');
 });
+
+/**
+ * REQUIREMENTS.md: "Timer count down for each move, 30s". On Node a setTimeout
+ * enforced it; here it is a Durable Object alarm, and the object is asleep when
+ * it fires. TURN_MS is a constant the Worker does not take as an argument, so
+ * this waits out a real 30 seconds rather than injecting a shorter clock.
+ */
+test('a player who never moves loses on time', { timeout: 60_000 }, async (t) => {
+  const room = roomId('TMO');
+  const { x, o } = await joinPair(t, room, 3);
+  x.drain();
+  o.drain();
+
+  // Neither side moves. The alarm has to wake the object and end the game.
+  const timedOut = await o.next('state', 45_000);
+  assert.equal(timedOut.state.status, 'over');
+  assert.equal(timedOut.state.winner, 'O', 'X was on the clock, so O takes it');
+  assert.equal(timedOut.state.turnDeadline, null);
+
+  // And the board is locked afterwards.
+  o.send({ type: 'move', index: 0 });
+  assert.match((await o.next('error')).message, /the game is over/);
+  void x;
+});
