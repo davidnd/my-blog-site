@@ -120,6 +120,30 @@ test('leaving frees the seat, and a rematch then waits for someone new', async (
   assert.equal((await friend.next('joined')).role, 'O');
 });
 
+test('New game resets both players in the same room and arms a fresh turn', async (t) => {
+  const room = roomId('REMATCH');
+  const { x, o, size } = await joinPair(t, room, 3);
+  for (const [player, index] of [[x, 0], [o, size], [x, 1], [o, size + 1], [x, 2]] as const) {
+    player.send({ type: 'move', index });
+    await x.next('state');
+    await o.next('state');
+  }
+
+  o.send({ type: 'rematch' });
+  for (const player of [x, o]) {
+    const message = await player.next('state');
+    assert.equal(message.state.roomId, room);
+    assert.equal(message.state.board, '.'.repeat(size * size));
+    assert.equal(message.state.status, 'playing');
+    assert.equal(message.state.turn, 'X');
+    assert.deepEqual(message.state.seatsTaken, { X: true, O: true });
+    assert.ok(message.state.turnDeadline !== null);
+    assert.ok(message.state.turnDeadline - message.serverNow > 25_000);
+  }
+  x.send({ type: 'move', index: 3 });
+  assert.equal((await o.next('state')).state.board[3], 'X');
+});
+
 test('a minted room reports the id it was actually given', async (t) => {
   const fresh = await TestClient.connect(PORT, 'room=new&player=pn&win=4');
   t.after(() => fresh.close());

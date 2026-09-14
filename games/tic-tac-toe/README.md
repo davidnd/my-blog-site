@@ -52,12 +52,30 @@ PORT=8787 npx vite
 ## Tests
 
 ```
-npm test         # 131 tests, pure logic and the Node transport, no setup
-npm run test:cf  # 13 tests against a running `npm run cf:dev`
+npm test         # Rules, Node transport, and controlled-clock Worker alarm tests
+npm run test:cf  # Integration tests against `wrangler dev --port 8799`
 ```
 
 `tests/cf/` needs the Worker up and fails loudly if it is not, rather than
 skipping, so a dead Worker cannot be mistaken for a pass.
+
+## Room lifetime and alarms
+
+The Worker schedules one-shot alarms for the next turn deadline or room cleanup.
+Moves replace the turn deadline; a finished game has no turn alarm. A rematch
+keeps the room id and seats, resets the board, and starts a new 30-second turn.
+
+Cleanup is due 24 hours after the last open connection disappears, including
+spectators. Reconnecting cancels that cleanup deadline. A public room created by
+matchmaking also gets a cleanup deadline until its first connection arrives.
+The deadline is persisted, so hibernation and duplicate close events do not
+extend it. Rooms from older deployments receive this metadata when they wake.
+
+Expired deadlines are consumed before selecting the next alarm. In particular,
+connected rooms no longer reschedule `createdAt + 24h` after it has passed.
+`tests/worker/alarms.test.mjs` exercises this regression, cleanup, reconnects,
+legacy rooms, and rematches with a controlled clock and platform stand-ins;
+`tests/cf/` checks the real Workers runtime and WebSockets.
 
 ## Deploying
 
@@ -69,6 +87,7 @@ Pages on the same zone.
 2. Uncomment the `routes` block in `wrangler.toml` and deploy again, or add the
    route `davidnd.dev/games/tic-tac-toe/ws` in the dashboard.
 
-All of it fits the free plan. Durable Objects are free with the SQLite storage
-backend, which is what `new_sqlite_classes` in `wrangler.toml` selects, and
-hibernation means an idle room or lobby accrues no duration charge.
+SQLite-backed Durable Objects are available on the free plan, subject to its
+usage limits. Alarm executions count as requests and scheduling alarms consumes
+storage writes. Hibernation avoids duration charges for eligible idle objects;
+it does not make alarm executions free.

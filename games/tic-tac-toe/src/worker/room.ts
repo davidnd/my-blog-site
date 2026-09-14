@@ -33,20 +33,35 @@ const DEFAULT_WIN_LENGTH = 3;
  */
 type Session = { playerId: string };
 
+/** A persisted, one-shot cleanup deadline; null while anyone is connected. */
+type StoredRoom = Room & { cleanupAt: number | null };
+
 export type RoomEnv = {
   ROOM: DurableObjectNamespace<GameRoom>;
   LOBBY: DurableObjectNamespace<LobbyRoom>;
 };
 
 export class GameRoom extends DurableObject<RoomEnv> {
-  #room: Room | null = null;
+  #room: StoredRoom | null = null;
 
   constructor(ctx: DurableObjectState, env: RoomEnv) {
     super(ctx, env);
     // No event is delivered until this resolves, so every handler below may
     // treat #room as already loaded rather than awaiting storage itself.
     ctx.blockConcurrencyWhile(async () => {
-      this.#room = (await ctx.storage.get<Room>('room')) ?? null;
+      const stored = await ctx.storage.get<Room & { cleanupAt?: number | null }>('room');
+      if (stored === undefined) return;
+      this.#room = {
+        ...stored,
+        // Rooms from the old deployment have no idle deadline. Give empty
+        // rooms a full grace period; connected rooms no longer expire by age.
+        cleanupAt: stored.cleanupAt === undefined
+          ? (this.#hasConnections() ? null : Date.now() + ROOM_TTL_MS)
+          : stored.cleanupAt,
+      };
+      if (stored.cleanupAt === undefined) await ctx.storage.put('room', this.#room);
+      // Do not schedule here: an existing alarm may be waking this object.
+      // Its handler will consume the old deadline and select a future one.
     });
   }
 
@@ -68,7 +83,7 @@ export class GameRoom extends DurableObject<RoomEnv> {
       try {
         // A client can only ever open a private room. The lobby calls
         // openPublic() before handing an id out, so visibility is not forgeable.
-        this.#room = createRoom(roomId, winLength, Date.now(), 'private');
+        this.#room = { ...createRoom(roomId, winLength, Date.now(), 'private'), cleanupAt: null };
       } catch {
         return new Response('invalid win length', { status: 400 });
       }
@@ -99,7 +114,7 @@ export class GameRoom extends DurableObject<RoomEnv> {
   /** Called by the lobby before it hands this id to two queued players. */
   async openPublic(roomId: string, winLength: number): Promise<void> {
     if (this.#room !== null) return;
-    this.#room = createRoom(roomId, winLength, Date.now(), 'public');
+    this.#room = { ...createRoom(roomId, winLength, Date.now(), 'public'), cleanupAt: null };
     await this.#persist();
   }
 
@@ -114,7 +129,8 @@ export class GameRoom extends DurableObject<RoomEnv> {
     // A seat held by someone who has gone is not an invitation to play.
     return this.ctx
       .getWebSockets()
-      .some((ws) => seatOf(room, (ws.deserializeAttachment() as Session | null)?.playerId ?? '') !== null);
+      .some((ws) => ws.readyState === WebSocket.READY_STATE_OPEN &&
+        seatOf(room, (ws.deserializeAttachment() as Session | null)?.playerId ?? '') !== null);
   }
 
   override async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
@@ -150,6 +166,7 @@ export class GameRoom extends DurableObject<RoomEnv> {
           this.#broadcast(ws);
         }
         ws.close(1000, 'left');
+        await this.#syncAlarm();
         if (changed) await this.#reportSeats();
       } else {
         this.#send(ws, { type: 'error', message: 'unknown message type' });
@@ -170,50 +187,66 @@ export class GameRoom extends DurableObject<RoomEnv> {
    * same game, exactly as it did on Node.
    */
   override async webSocketClose(): Promise<void> {
+    await this.#syncAlarm();
+    await this.#reportSeats();
+  }
+
+  override async webSocketError(ws: WebSocket): Promise<void> {
+    ws.close(1011, 'connection error');
+    await this.#syncAlarm();
     await this.#reportSeats();
   }
 
   /**
-   * The move timer and the 24h expiry share the single alarm slot, so this runs
-   * for either and re-derives the next one.
+   * A one-shot alarm handles whichever deadline is due. No recurring sweep.
    */
   override async alarm(): Promise<void> {
-    const room = this.#room;
-    if (room === null) return;
-    const now = Date.now();
-
-    if (resolveTimeout(room, now)) {
-      await this.ctx.storage.put('room', room);
-      this.#broadcast();
-    }
-
-    // Nobody came back. This is the whole of the Node sweep: an object whose
-    // storage is empty when it shuts down ceases to exist, and costs nothing.
-    if (now - room.createdAt >= ROOM_TTL_MS && this.ctx.getWebSockets().length === 0) {
-      await this.#reportClosed();
-      await this.ctx.storage.deleteAll();
-      this.#room = null;
-      return;
-    }
-    this.#syncAlarm();
+    await this.#syncAlarm();
   }
 
   async #persist(): Promise<void> {
     if (this.#room === null) return;
     await this.ctx.storage.put('room', this.#room);
-    this.#syncAlarm();
+    await this.#syncAlarm();
   }
 
-  /** Arm whichever deadline comes first; alarm() re-derives the other. */
-  #syncAlarm(): void {
+  #hasConnections(): boolean {
+    // getWebSockets() can still include sockets whose close handshake is in
+    // progress. Those must not keep an abandoned room alive.
+    return this.ctx.getWebSockets().some((ws) => ws.readyState === WebSocket.READY_STATE_OPEN);
+  }
+
+  /** Consume expired deadlines before scheduling the next one. */
+  async #syncAlarm(): Promise<void> {
     const room = this.#room;
     if (room === null) return;
-    const expiry = room.createdAt + ROOM_TTL_MS;
-    const next =
-      room.status === 'playing' && room.turnDeadline !== null
-        ? Math.min(room.turnDeadline, expiry)
-        : expiry;
-    void this.ctx.storage.setAlarm(next);
+    const now = Date.now();
+    const timedOut = resolveTimeout(room, now);
+    const cleanupAt = this.#hasConnections() ? null : (room.cleanupAt ?? now + ROOM_TTL_MS);
+    const cleanupChanged = cleanupAt !== room.cleanupAt;
+    room.cleanupAt = cleanupAt;
+
+    if (timedOut || cleanupChanged) await this.ctx.storage.put('room', room);
+    if (timedOut) this.#broadcast();
+
+    if (cleanupAt !== null && cleanupAt <= now) {
+      // Reporting to the lobby is an external RPC. Keep a reconnect from
+      // interleaving with cleanup while that RPC is in flight.
+      await this.ctx.blockConcurrencyWhile(async () => {
+        await this.#reportClosed();
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.deleteAll();
+        this.#room = null;
+      });
+      return;
+    }
+
+    const turn = room.status === 'playing' ? room.turnDeadline : null;
+    const next = turn === null ? cleanupAt : cleanupAt === null ? turn : Math.min(turn, cleanupAt);
+    const scheduled = await this.ctx.storage.getAlarm();
+    if (next === scheduled) return;
+    if (next === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(next);
   }
 
   /** Tells the lobby whether this public room is worth sending anyone to. */
