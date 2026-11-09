@@ -30,7 +30,7 @@
   "@type": "SoftwareApplication",
   "name": "Tock",
   "alternateName": "Tock reminder app for Mac",
-  "description": "A tiny reminder app for the macOS menu bar. Press a shortcut, type the reminder and its time in plain English, and get alerted on time.",
+  "description": "A tiny reminder app for the macOS menu bar. Press a keyboard shortcut, type the reminder and its time in plain English, and get alerted on time. Also works as a quick timer, and as a lightweight alternative to Apple Reminders for quick reminders.",
   "applicationCategory": "ProductivityApplication",
   "operatingSystem": "macOS 13 or later",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -49,7 +49,7 @@
   "mainEntity": [
     { "@type": "Question", "name": "Is Tock free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Tock is free to download and use, with no account and no in-app purchases." } },
     { "@type": "Question", "name": "Which Macs does Tock run on?", "acceptedAnswer": { "@type": "Answer", "text": "Any Mac with macOS 13 Ventura or later, on Apple Silicon or Intel." } },
-    { "@type": "Question", "name": "How is Tock different from Apple Reminders?", "acceptedAnswer": { "@type": "Answer", "text": "Tock is only for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account." } },
+    { "@type": "Question", "name": "How is Tock different from Apple Reminders?", "acceptedAnswer": { "@type": "Answer", "text": "Tock is a lightweight alternative to Apple Reminders for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account." } },
     { "@type": "Question", "name": "Does Tock send my reminders anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Tock doesn't use the network. Your reminders are saved in a file on your Mac." } }
   ]
 }
@@ -163,8 +163,8 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
 <main>
   <section>
     <div class="wrap how">
-      <h2>Add a reminder in two seconds</h2>
-      <p class="sub">Wherever you are, press the shortcut, type what to remember and when, and get back to what you were doing.</p>
+      <h2>Set a quick reminder in two seconds</h2>
+      <p class="sub">Set a reminder on your Mac from any app: press the keyboard shortcut, type what to remember and when, and get back to what you were doing.</p>
       <p class="keys"><kbd>⌃</kbd><kbd>⌘</kbd><kbd>R</kbd> <span>→</span> type <span>→</span> <kbd>Enter</kbd></p>
       <img class="quick" src="images/quick-add.png" alt="The Tock quick-add bar with “Call mom tomorrow at 5” typed in, showing Tomorrow 17:00" width="700" height="94" loading="lazy">
       <ul class="examples">
@@ -174,7 +174,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <li><code>Pay rent on the 1st</code><span class="res"><span class="arrow">→</span><span class="when">1st, 09:00</span></span></li>
       </ul>
       <ul class="facts">
-        <li><strong>Plain English</strong>Write the time the way you'd say it. Tock shows what it understood before you press Enter.</li>
+        <li><strong>Plain English</strong>Write the time the way you'd say it, from “tomorrow at 5” to “in 90s” for a quick timer. Tock shows what it understood before you press Enter.</li>
         <li><strong>Just a menu bar icon</strong>No Dock icon and no window to manage. A clock in the menu bar, and that's it.</li>
         <li><strong>Lightweight</strong>A small native Swift app. No account, no sync, nothing sent anywhere.</li>
       </ul>
@@ -205,7 +205,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <dt>Which Macs does Tock run on?</dt>
         <dd>Any Mac with macOS 13 Ventura or later, on Apple Silicon or Intel.</dd>
         <dt>How is Tock different from Apple Reminders?</dt>
-        <dd>Tock is only for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account.</dd>
+        <dd>Tock is a lightweight alternative to Apple Reminders for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account.</dd>
         <dt>Does Tock send my reminders anywhere?</dt>
         <dd>No. Tock doesn't use the network. Your reminders are saved in a file on your Mac.</dd>
       </dl>
