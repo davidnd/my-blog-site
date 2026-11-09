@@ -14,6 +14,15 @@ Read `games/tic-tac-toe/README.md` before touching it. The Astro build does not
 build it; the output is committed. The server is a Cloudflare Worker with Durable
 Objects, deployed separately from Pages.
 
+## Products
+Apps David makes are listed in `src/pages/products/index.astro`, each with a page
+at `src/pages/products/<slug>.astro` and images in `public/images/products/<slug>/`.
+Their downloads are not in this repo: each app's release script uploads its files
+to the R2 bucket `downloads`, served at `https://downloads.davidnd.dev/<slug>/`.
+A product page links to `<slug>/<Name>.dmg` and reads `<slug>/latest.json` in the
+browser for the version, so releases need no blog deploy. For Tock, the app repo
+is `~/Code/reminder` (private); read its `RELEASE.md` before changing the page.
+
 ## Author voice
 Read `src/content/blog/are-we-cooked.mdx` before drafting anything personal. David
 confirmed it sounds like him. Match it by ear. Don't reverse-engineer it into rules

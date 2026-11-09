@@ -4,12 +4,16 @@ import "../styles/global.css";
 interface Props {
   title?: string;
   description?: string;
+  /** Path of a 1200x630-ish image for link previews; adds a large card. */
+  image?: string;
 }
 
 const {
   title = "David Nguyen",
   description = "Notes on software, systems, and the things I am learning.",
+  image,
 } = Astro.props;
+const imageURL = image ? new URL(image, Astro.site) : undefined;
 
 const pageTitle = title === "David Nguyen" ? title : `${title} | David Nguyen`;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
@@ -30,7 +34,9 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
-    <meta name="twitter:card" content="summary" />
+    {imageURL && <meta property="og:image" content={imageURL} />}
+    <meta name="twitter:card" content={imageURL ? "summary_large_image" : "summary"} />
+    {imageURL && <meta name="twitter:image" content={imageURL} />}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet" />
@@ -43,6 +49,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <header class="site-header">
         <a class="site-title" href="/">David Nguyen</a>
         <nav class="site-nav">
+          <a href="/products/">Products</a>
           <a href="/games/">I'm feeling lucky</a>
         </nav>
       </header>
