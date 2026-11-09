@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tock: menu bar reminders for Mac, typed in plain English</title>
-<meta name="description" content="Tock is a free, open-source reminder app for the macOS menu bar. Press ⌃⌘R, type “call mom tomorrow at 5”, and get a reminder right on time. Native Swift, no account.">
+<title>Tock: a menu bar reminder app for Mac, in plain English</title>
+<meta name="description" content="Tock is a free reminder app for the Mac menu bar. Press ⌃⌘R, type “call mom tomorrow at 5” in plain English, and get reminded right on time. Lightweight, native, no account.">
+<meta name="author" content="David Nguyen">
 <link rel="canonical" href="https://davidnd.dev/products/tock/">
 <link rel="icon" type="image/png" href="images/favicon.png">
 <link rel="apple-touch-icon" href="images/icon.png">
@@ -28,13 +29,30 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Tock",
-  "description": "A tiny reminder app for the macOS menu bar. Type reminders in plain English and get alerted on time.",
+  "alternateName": "Tock reminder app for Mac",
+  "description": "A tiny reminder app for the macOS menu bar. Press a shortcut, type the reminder and its time in plain English, and get alerted on time.",
   "applicationCategory": "ProductivityApplication",
   "operatingSystem": "macOS 13 or later",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "downloadUrl": "https://downloads.davidnd.dev/tock/Tock.dmg",
   "image": "https://davidnd.dev/products/tock/images/icon.png",
+  "screenshot": "https://davidnd.dev/products/tock/images/social-preview.png",
+  "featureList": "Global shortcut to add a reminder, natural-language dates and times, menu bar list, alert cards with snooze, search including completed reminders",
+  "author": { "@type": "Person", "name": "David Nguyen", "url": "https://davidnd.dev/" },
   "url": "https://davidnd.dev/products/tock/"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is Tock free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Tock is free to download and use, with no account and no in-app purchases." } },
+    { "@type": "Question", "name": "Which Macs does Tock run on?", "acceptedAnswer": { "@type": "Answer", "text": "Any Mac with macOS 13 Ventura or later, on Apple Silicon or Intel." } },
+    { "@type": "Question", "name": "How do I set a reminder for a specific time?", "acceptedAnswer": { "@type": "Answer", "text": "Press Control-Command-R anywhere, type the reminder with its time, like “call mom tomorrow at 5” or “check the oven in 15 min”, and press Enter. Tock shows the time it understood before you press Enter." } },
+    { "@type": "Question", "name": "How is Tock different from Apple Reminders?", "acceptedAnswer": { "@type": "Answer", "text": "Tock is only for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account." } },
+    { "@type": "Question", "name": "Does Tock send my reminders anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Tock doesn't use the network. Your reminders are saved in a file on your Mac." } }
+  ]
 }
 </script>
 
@@ -115,6 +133,11 @@ h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; let
 }
 .note { margin-top: 26px; padding: 16px 18px; border-radius: 12px; background: var(--accent-soft); font-size: 15.5px; max-width: 760px; }
 .note pre { margin: 10px 0 0; overflow-x: auto; }
+.demo video { display: block; width: 100%; height: auto; }
+.faq { max-width: 760px; margin: 0; }
+.faq dt { font-weight: 700; margin-top: 22px; }
+.faq dt:first-child { margin-top: 0; }
+.faq dd { margin: 4px 0 0; color: var(--muted); }
 
 footer { padding: 36px 0 48px; color: var(--muted); font-size: 14.5px; }
 footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
@@ -133,7 +156,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
     </div>
     <p class="meta" id="download-meta">Free · macOS 13 Ventura or later · Apple Silicon and Intel</p>
     <div class="demo">
-      <img src="images/demo.gif" alt="Adding a reminder with ⌃⌘R, opening the list from the menu bar, and completing a reminder from its alert card" width="1280" height="800" loading="eager">
+      <video src="images/demo.mp4" poster="images/demo-poster.jpg" width="1280" height="800" autoplay muted loop playsinline preload="auto" aria-label="Adding a reminder with ⌃⌘R, opening the list from the menu bar, and completing a reminder from its alert card"></video>
     </div>
   </div>
 </header>
@@ -172,6 +195,23 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <strong>“Apple could not verify Tock”?</strong> This build isn't notarized yet. Open it once, then go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>. Or run this in Terminal:
         <pre><code>xattr -dr com.apple.quarantine /Applications/Tock.app</code></pre>
       </div>
+    </div>
+  </section>
+  <section id="faq">
+    <div class="wrap">
+      <h2>Questions</h2>
+      <dl class="faq">
+        <dt>Is Tock free?</dt>
+        <dd>Yes. Free to download and use, with no account and no in-app purchases.</dd>
+        <dt>Which Macs does Tock run on?</dt>
+        <dd>Any Mac with macOS 13 Ventura or later, on Apple Silicon or Intel.</dd>
+        <dt>How do I set a reminder for a specific time?</dt>
+        <dd>Press <kbd>⌃</kbd><kbd>⌘</kbd><kbd>R</kbd> anywhere, type the reminder with its time, like “call mom tomorrow at 5” or “check the oven in 15 min”, and press <kbd>Enter</kbd>. Tock shows the time it understood before you press Enter.</dd>
+        <dt>How is Tock different from Apple Reminders?</dt>
+        <dd>Tock is only for quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and doesn't sync or need an account.</dd>
+        <dt>Does Tock send my reminders anywhere?</dt>
+        <dd>No. Tock doesn't use the network. Your reminders are saved in a file on your Mac.</dd>
+      </dl>
     </div>
   </section>
 </main>
