@@ -61,6 +61,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       <header class="mast">
         <a class="mast-name" href="/">David Nguyen</a>
         <nav class="mast-nav">
+          <a href="/products/">Products</a>
           <a href="/games/">I'm feeling lucky</a>
         </nav>
       </header>
@@ -162,6 +163,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
     letter-spacing: 0.02em;
     color: var(--ink);
     text-decoration: none;
+  }
+  .mast-nav {
+    display: flex;
+    gap: 20px;
   }
   .mast-nav a {
     font-family: var(--sans);
