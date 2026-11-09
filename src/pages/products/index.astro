@@ -1,36 +1,37 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 
-// Apps I make. Each has a page at /products/<slug>/ and its downloads on
-// https://downloads.davidnd.dev/<slug>/ (an R2 bucket; see the app's RELEASE.md).
+// Apps I make, laid out like the games page. Each `href` points at the app's
+// own self-contained landing page under public/products/<slug>/ (not themed
+// like the blog), and `thumb` is a square image in public/images/products/.
+// Downloads live on downloads.davidnd.dev (R2); see the app repo's RELEASE.md.
 const products = [
   {
-    name: "Tock",
+    title: "Tock",
     href: "/products/tock/",
-    icon: "/images/products/tock/icon.png",
-    platform: "macOS",
-    blurb: "A tiny reminder app for your menu bar. Press a shortcut, type the reminder in plain English, get nudged on time.",
+    thumb: "/images/products/tock.png",
+    blurb: "A tiny Mac menu bar app for reminders. Press a shortcut, type it in plain English, get nudged on time.",
   },
 ];
 ---
 
-<BaseLayout title="Products" description="Small apps I make and use every day.">
+<BaseLayout title="Products" description="Small apps I make and use every day. Click one to learn more and download it.">
   <div class="intro">
     <h1>Products</h1>
-    <p>Small apps I make because I wanted them. Free to download.</p>
+    <p>Small apps I make and use every day. Click one to learn more and download it.</p>
   </div>
 
-  <ul class="products">
+  <ul class="products-grid">
     {
-      products.map((p) => (
+      products.map((product) => (
         <li>
-          <a class="product" href={p.href}>
-            <img src={p.icon} alt="" width="72" height="72" />
-            <span class="info">
-              <span class="name">
-                {p.name} <span class="platform">{p.platform}</span>
-              </span>
-              <span class="blurb">{p.blurb}</span>
+          <a class="product-card" href={product.href}>
+            <span class="product-thumb">
+              <img src={product.thumb} alt={`${product.title} thumbnail`} width="400" height="400" loading="lazy" />
+            </span>
+            <span class="product-info">
+              <span class="product-name">{product.title}</span>
+              <span class="product-blurb">{product.blurb}</span>
             </span>
           </a>
         </li>
@@ -55,53 +56,90 @@ const products = [
     font-size: 18px;
     line-height: 1.5;
   }
-  .products {
+
+  .products-grid {
     list-style: none;
-    margin: 32px 0 0;
+    margin: 8px 0 0;
     padding: 0;
     display: grid;
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 192px));
+    justify-content: start;
+    gap: 28px;
   }
-  .product {
-    display: flex;
-    gap: 18px;
-    align-items: center;
-    padding: 16px 18px;
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    background: var(--surface);
-    color: inherit;
-    text-decoration: none;
-    transition: border-color 0.15s ease;
-  }
-  .product:hover {
-    border-color: var(--accent);
-  }
-  .product img {
-    flex: none;
-    width: 72px;
-    height: 72px;
-  }
-  .info {
+
+  .product-card {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    text-decoration: none;
+    color: inherit;
   }
-  .name {
+
+  .product-thumb {
+    display: block;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    background: var(--tint-2);
+    transition:
+      border-color 0.15s ease,
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .product-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .product-card:hover .product-thumb {
+    border-color: var(--rule-strong);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px rgba(4, 38, 63, 0.22);
+  }
+
+  .product-info {
+    display: block;
+    padding: 14px 2px 0;
+  }
+  .product-name {
+    display: block;
     font-family: var(--slab);
-    font-size: 20px;
     font-weight: 600;
+    font-size: 17px;
+    line-height: 1.25;
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s ease, color 0.15s ease;
   }
-  .platform {
-    font-family: var(--sans);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--faint);
-    margin-left: 6px;
+  .product-card:hover .product-name {
+    color: var(--accent);
+    text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
   }
-  .blurb {
-    color: var(--muted);
-    font-size: 16px;
+  .product-blurb {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--serif);
+    font-size: 14.5px;
     line-height: 1.45;
+    color: var(--muted);
+  }
+
+  .product-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 16px;
+  }
+
+  @media (max-width: 520px) {
+    .products-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 20px;
+    }
+    .intro h1 {
+      font-size: 28px;
+    }
   }
 </style>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tock: menu bar reminders for Mac, typed in plain English</title>
+<meta name="description" content="Tock is a free, open-source reminder app for the macOS menu bar. Press ⌃⌘R, type “call mom tomorrow at 5”, and get a reminder right on time. Native Swift, no account.">
+<link rel="canonical" href="https://davidnd.dev/products/tock/">
+<link rel="icon" type="image/png" href="images/favicon.png">
+<link rel="apple-touch-icon" href="images/icon.png">
+<meta name="theme-color" content="#4F46E5">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tock">
+<meta property="og:title" content="Tock: menu bar reminders for Mac">
+<meta property="og:description" content="Press a shortcut, type a reminder in plain English, get nudged on time. Free.">
+<meta property="og:url" content="https://davidnd.dev/products/tock/">
+<meta property="og:image" content="https://davidnd.dev/products/tock/images/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tock: menu bar reminders for Mac">
+<meta name="twitter:description" content="Press a shortcut, type a reminder in plain English, get nudged on time. Free.">
+<meta name="twitter:image" content="https://davidnd.dev/products/tock/images/social-preview.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Tock",
+  "description": "A tiny reminder app for the macOS menu bar. Type reminders in plain English and get alerted on time.",
+  "applicationCategory": "ProductivityApplication",
+  "operatingSystem": "macOS 13 or later",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "downloadUrl": "https://downloads.davidnd.dev/tock/Tock.dmg",
+  "image": "https://davidnd.dev/products/tock/images/icon.png",
+  "url": "https://davidnd.dev/products/tock/"
+}
+</script>
+
+<style>
+:root {
+  --bg: #F4F5F9; --surface: #FFFFFF; --text: #17171C; --muted: #5B5D6B; --line: rgba(23, 23, 28, 0.09);
+  --accent: #4F46E5; --accent-2: #7C3AED; --accent-soft: rgba(99, 102, 241, 0.12); --code: rgba(23, 23, 28, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111116; --surface: #1C1C24; --text: #F2F2F5; --muted: #A2A3B3; --line: rgba(255, 255, 255, 0.1);
+    --accent: #818CF8; --accent-2: #A78BFA; --accent-soft: rgba(129, 140, 248, 0.16); --code: rgba(255, 255, 255, 0.08);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+kbd {
+  font: 600 0.85em -apple-system, BlinkMacSystemFont, sans-serif; padding: 2px 7px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1px 0 var(--line);
+}
+code { font: 0.88em ui-monospace, "SF Mono", Menlo, monospace; background: var(--code); padding: 2px 6px; border-radius: 5px; }
+
+/* Hero */
+.hero {
+  color: #fff; text-align: center; padding: 64px 0 0; overflow: hidden;
+  background: linear-gradient(155deg, #312E81 0%, #4F46E5 40%, #7C3AED 78%, #C026D3 100%);
+}
+.hero img.icon { width: 112px; height: 112px; margin: 0 auto 18px; filter: drop-shadow(0 10px 24px rgba(0,0,0,.3)); }
+.hero h1 { font-size: clamp(44px, 8vw, 72px); line-height: 1; margin: 0; letter-spacing: -0.02em; }
+.hero p.lede { font-size: clamp(19px, 2.6vw, 24px); margin: 16px auto 0; max-width: 640px; color: rgba(255,255,255,.9); }
+.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 30px 0 12px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 13px 24px; border-radius: 999px;
+  font-weight: 600; font-size: 16px; transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.btn.primary { background: #fff; color: #3730A3; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+.btn.ghost { color: #fff; border: 1.5px solid rgba(255,255,255,.55); }
+.btn.ghost:hover { background: rgba(255,255,255,.12); }
+.meta { font-size: 14px; color: rgba(255,255,255,.75); margin: 0; }
+.demo {
+  margin: 44px auto -1px; max-width: 900px; border-radius: 14px 14px 0 0; overflow: hidden;
+  box-shadow: 0 -10px 50px rgba(0,0,0,.25); background: #1C1C24;
+}
+
+/* Sections */
+section { padding: 72px 0; }
+h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 0 0 32px; max-width: 640px; }
+.how { max-width: 760px; margin: 0 auto; text-align: center; }
+.how .sub { margin-left: auto; margin-right: auto; }
+.keys { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 17px; color: var(--muted); margin: 0 0 26px; }
+.keys kbd { font-size: 17px; padding: 5px 11px; color: var(--text); }
+.quick { border-radius: 16px; box-shadow: 0 18px 50px rgba(30, 27, 75, .18); margin: 0 auto; width: 100%; max-width: 700px; }
+.examples { list-style: none; padding: 0; margin: 30px auto 0; display: grid; gap: 10px; justify-content: center; }
+.examples li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; justify-content: center; }
+.examples .res { white-space: nowrap; }
+.examples .arrow { color: var(--muted); margin-right: 6px; }
+.examples .when { color: var(--accent); font-weight: 600; }
+.facts { list-style: none; padding: 0; margin: 44px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 28px; text-align: left; }
+.facts li { color: var(--muted); font-size: 15.5px; }
+.facts strong { color: var(--text); display: block; font-size: 16px; }
+
+.install { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; max-width: 760px; }
+.steps li { counter-increment: step; position: relative; padding-left: 46px; }
+.steps li::before {
+  content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--accent-soft); color: var(--accent);
+}
+.note { margin-top: 26px; padding: 16px 18px; border-radius: 12px; background: var(--accent-soft); font-size: 15.5px; max-width: 760px; }
+.note pre { margin: 10px 0 0; overflow-x: auto; }
+
+footer { padding: 36px 0 48px; color: var(--muted); font-size: 14.5px; }
+footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="icon" src="images/icon.png" alt="Tock app icon: a clock with hands forming a check mark" width="112" height="112">
+    <h1>Tock</h1>
+    <p class="lede">A tiny reminder app for your Mac’s menu bar.</p>
+    <div class="cta">
+      <a class="btn primary" id="download" href="https://downloads.davidnd.dev/tock/Tock.dmg">Download for Mac</a>
+      <a class="btn ghost" href="/products/">More apps</a>
+    </div>
+    <p class="meta" id="download-meta">Free · macOS 13 Ventura or later · Apple Silicon and Intel</p>
+    <div class="demo">
+      <img src="images/demo.gif" alt="Adding a reminder with ⌃⌘R, opening the list from the menu bar, and completing a reminder from its alert card" width="1280" height="800" loading="eager">
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap how">
+      <h2>Add a reminder in two seconds</h2>
+      <p class="sub">Wherever you are, press the shortcut, type what to remember and when, and get back to what you were doing.</p>
+      <p class="keys"><kbd>⌃</kbd><kbd>⌘</kbd><kbd>R</kbd> <span>→</span> type <span>→</span> <kbd>Enter</kbd></p>
+      <img class="quick" src="images/quick-add.png" alt="The Tock quick-add bar with “Call mom tomorrow at 5” typed in, showing Tomorrow 17:00" width="700" height="94" loading="lazy">
+      <ul class="examples">
+        <li><code>Call mom tomorrow at 5</code><span class="res"><span class="arrow">→</span><span class="when">Tomorrow 17:00</span></span></li>
+        <li><code>Take the tea bag out in 90s</code><span class="res"><span class="arrow">→</span><span class="when">in 90 seconds</span></span></li>
+        <li><code>Team lunch this Friday at noon</code><span class="res"><span class="arrow">→</span><span class="when">Fri 12:00</span></span></li>
+        <li><code>Pay rent on the 1st</code><span class="res"><span class="arrow">→</span><span class="when">1st, 09:00</span></span></li>
+      </ul>
+      <ul class="facts">
+        <li><strong>Plain English</strong>Write the time the way you'd say it. Tock shows what it understood before you press Enter.</li>
+        <li><strong>Just a menu bar icon</strong>No Dock icon and no window to manage. A clock in the menu bar, and that's it.</li>
+        <li><strong>Lightweight</strong>A small native Swift app. No account, no sync, nothing sent anywhere.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="sub">Tock is free. It runs on macOS 13 Ventura or later, on Apple Silicon and Intel Macs.</p>
+      <ol class="steps">
+        <li>Download Tock with the button at the top of this page, or <a href="https://downloads.davidnd.dev/tock/Tock.dmg">here</a>.</li>
+        <li>Open it and drag <strong>Tock</strong> into <strong>Applications</strong>.</li>
+        <li>Open Tock. Look for the clock in your menu bar, then press <kbd>⌃</kbd><kbd>⌘</kbd><kbd>R</kbd> to add your first reminder.</li>
+      </ol>
+      <div class="note">
+        <strong>“Apple could not verify Tock”?</strong> This build isn't notarized yet. Open it once, then go to <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>. Or run this in Terminal:
+        <pre><code>xattr -dr com.apple.quarantine /Applications/Tock.app</code></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Tock · Made by <a href="https://davidnd.dev/">David Nguyen</a></span>
+    <span><a href="/products/">More apps</a></span>
+  </div>
+</footer>
+
+<script>
+// Show the newest version on the download button. Releases upload
+// latest.json to R2 (see RELEASE.md in the Tock repo), so this page never
+// needs editing for a new version. Without it the button still downloads
+// Tock.dmg, the copy of the newest release.
+fetch("https://downloads.davidnd.dev/tock/latest.json", { cache: "no-cache" })
+  .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+  .then((latest) => {
+    const button = document.getElementById("download");
+    const meta = document.getElementById("download-meta");
+    if (!button || !meta || !latest || !latest.version) return;
+    if (latest.url) button.href = latest.url;
+    button.textContent = "Download Tock " + latest.version;
+    const mb = latest.size ? (latest.size / 1e6).toFixed(1) + " MB · " : "";
+    const macos = String(latest.minimumMacOS || "13").replace(/\.0$/, "");
+    meta.textContent = "Free · " + mb + "macOS " + macos + " or later · Apple Silicon and Intel";
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>

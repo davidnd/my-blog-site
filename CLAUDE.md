@@ -15,13 +15,17 @@ build it; the output is committed. The server is a Cloudflare Worker with Durabl
 Objects, deployed separately from Pages.
 
 ## Products
-Apps David makes are listed in `src/pages/products/index.astro`, each with a page
-at `src/pages/products/<slug>.astro` and images in `public/images/products/<slug>/`.
-Their downloads are not in this repo: each app's release script uploads its files
-to the R2 bucket `downloads`, served at `https://downloads.davidnd.dev/<slug>/`.
-A product page links to `<slug>/<Name>.dmg` and reads `<slug>/latest.json` in the
-browser for the version, so releases need no blog deploy. For Tock, the app repo
-is `~/Code/reminder` (private); read its `RELEASE.md` before changing the page.
+Apps David makes are listed in `src/pages/products/index.astro`, a grid like the
+games page, with a 400x400 thumbnail (800px PNG) in `public/images/products/`.
+Each product's landing page is a self-contained HTML page with its own design in
+`public/products/<slug>/index.html` (images in `public/products/<slug>/images/`),
+not an Astro page: no blog header, no blog theme, like the games.
+
+Downloads are not in this repo. Each app's release script uploads its files to
+the R2 bucket `downloads`, served at `https://downloads.davidnd.dev/<slug>/`. A
+landing page links to the newest file and reads `<slug>/latest.json` in the
+browser to show the version, so releases need no blog deploy. For Tock, the app
+repo is `~/Code/reminder` (private); read its `RELEASE.md` before changing the page.
 
 ## Author voice
 Read `src/content/blog/are-we-cooked.mdx` before drafting anything personal. David
