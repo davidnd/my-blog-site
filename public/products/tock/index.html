@@ -131,6 +131,10 @@ h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; let
   content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
   display: grid; place-items: center; font-weight: 700; font-size: 14px; background: var(--accent-soft); color: var(--accent);
 }
+.support { text-align: center; color: var(--muted); font-size: 15.5px; padding: 8px 0 40px; }
+.support p { margin: 0 0 12px; }
+.support a { display: inline-block; padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 600; text-decoration: none; }
+.support a:hover { background: var(--accent-soft); }
 .note { margin-top: 26px; padding: 16px 18px; border-radius: 12px; background: var(--accent-soft); font-size: 15.5px; max-width: 760px; }
 .note pre { margin: 10px 0 0; overflow-x: auto; }
 .demo video { display: block; width: 100%; height: auto; }
@@ -213,6 +217,12 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <dt>Does Tock send my reminders anywhere?</dt>
         <dd>No. Tock doesn't use the network. Your reminders are saved in a file on your Mac.</dd>
       </dl>
+    </div>
+  </section>
+  <section class="support">
+    <div class="wrap">
+      <p>Tock is free. If it saves you a few minutes, you can chip in.</p>
+      <a href="https://ko-fi.com/davidnd" rel="noopener">☕ Support Tock on Ko-fi</a>
     </div>
   </section>
 </main>
