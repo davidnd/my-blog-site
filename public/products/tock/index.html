@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tock: a menu bar reminder app for Mac, in plain English</title>
-<meta name="description" content="Tock is a free reminder app for the Mac menu bar. Press ⌃⌘R, type “call mom tomorrow at 5” or “standup every weekday at 9:30” in plain English, and get reminded right on time. Repeating reminders, optional sync with Apple Reminders, no account.">
+<meta name="description" content="Tock is a free reminder app for the Mac menu bar. Press ⌃⌘R, type “call mom tomorrow at 5” or “standup every weekday at 9:30” in plain English, and get reminded right on time. Repeating reminders, timers that count down in the menu bar, optional sync with Apple Reminders, no account.">
 <meta name="author" content="David Nguyen">
 <link rel="canonical" href="https://davidnd.dev/products/tock/">
 <link rel="icon" type="image/png" href="images/favicon.png">
@@ -30,14 +30,14 @@
   "@type": "SoftwareApplication",
   "name": "Tock",
   "alternateName": "Tock reminder app for Mac",
-  "description": "A tiny reminder app for the macOS menu bar. Press a keyboard shortcut, type the reminder and its time in plain English, and get alerted on time, once or on a repeat (every day, every weekday, every Monday, monthly on the 28th, every 8 hours). Also works as a quick timer, and can sync both ways with a list in Apple Reminders, so the reminders are on your iPhone too.",
+  "description": "A tiny reminder app for the macOS menu bar. Press a keyboard shortcut, type the reminder and its time in plain English, and get alerted on time, once or on a repeat (every day, every weekday, every Monday, monthly on the 28th, every 8 hours). Also sets timers (“timer 10m”) that count down in the menu bar, and can sync reminders both ways with a list in Apple Reminders, so they are on your iPhone too.",
   "applicationCategory": "ProductivityApplication",
   "operatingSystem": "macOS 13 or later",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "downloadUrl": "https://downloads.davidnd.dev/tock/Tock.dmg",
   "image": "https://davidnd.dev/products/tock/images/icon.png",
   "screenshot": "https://davidnd.dev/products/tock/images/social-preview.png",
-  "featureList": "Global shortcut to add a reminder, natural-language dates and times, repeating reminders, menu bar list, alert cards with snooze, search including completed reminders, two-way sync with Apple Reminders",
+  "featureList": "Global shortcut to add a reminder, natural-language dates and times, repeating reminders, timers with a menu bar countdown, menu bar list, alert cards with snooze, search including completed reminders, two-way sync with Apple Reminders",
   "author": { "@type": "Person", "name": "David Nguyen", "url": "https://davidnd.dev/" },
   "url": "https://davidnd.dev/products/tock/"
 }
@@ -51,7 +51,9 @@
     { "@type": "Question", "name": "Which Macs does Tock run on?", "acceptedAnswer": { "@type": "Answer", "text": "Any Mac with macOS 13 Ventura or later, on Apple Silicon or Intel." } },
     { "@type": "Question", "name": "How is Tock different from Apple Reminders?", "acceptedAnswer": { "@type": "Answer", "text": "Tock is a faster way to set quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and needs no account. It can also work with Apple Reminders: turn on sync and your Tock reminders are kept in a list there." } },
     { "@type": "Question", "name": "Can Tock set repeating reminders?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Type how often in plain English, like “every day at 8”, “every weekday at 9:30”, “every other Monday”, “pay rent on the 28th every month” or “every 8 hours”. Completing a repeating reminder sets its next time." } },
-    { "@type": "Question", "name": "Does Tock sync with Apple Reminders or my iPhone?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, if you turn it on in Settings. Tock keeps a list named “Tock” in Apple Reminders in step with its own, both ways: add, edit, complete or delete a reminder on either side and the other follows. Reminders shows that list on your iPhone, so your Tock reminders are there too. Your other Reminders lists are left alone." } },
+    { "@type": "Question", "name": "Can Tock set a timer?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. In the same bar you add reminders with, start with “timer”, or put it after a length or a name: “timer 10m”, “set a timer for 5 minutes”, “pasta timer 8 min” or “timer until 5pm”. The timer gets its own row at the top of the list, and the time left counts down beside Tock's icon in the menu bar. When it ends you get Tock's usual alert, with Done and Restart. Click a running timer's ring to stop it." } },
+    { "@type": "Question", "name": "Do timers sync with Apple Reminders or show on my iPhone?", "acceptedAnswer": { "@type": "Answer", "text": "No. Timers are separate from reminders and run only on the Mac where you start them. They are not copied to Apple Reminders, so a timer doesn't appear or alert on your iPhone, even with sync turned on. If you want your iPhone to tell you too, add a reminder instead, like “check the oven in 10 min”: reminders sync, timers don't." } },
+    { "@type": "Question", "name": "Does Tock sync with Apple Reminders or my iPhone?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, if you turn it on in Settings. Tock keeps a list named “Tock” in Apple Reminders in step with its own, both ways: add, edit, complete or delete a reminder on either side and the other follows. Reminders shows that list on your iPhone, so your Tock reminders are there too. Your other Reminders lists are left alone. Timers are not synced: they stay on your Mac." } },
     { "@type": "Question", "name": "How do I get alerts on my iPhone without two on my Mac?", "acceptedAnswer": { "@type": "Answer", "text": "With sync on, Apple Reminders alerts for your Tock reminders as well, so your iPhone tells you when your Mac is closed. On the Mac that means two alerts: Tock's card and Apple's notification. To keep only Tock's there, open System Settings → Notifications → Reminders on the Mac and turn off Allow Notifications. The catch: that setting is for the whole Reminders app, so Apple's notifications for all your Reminders lists go quiet on that Mac, not only the Tock list. Your iPhone still alerts for every list, and Tock still alerts on the Mac for the reminders in its own list. Prefer alerts from Tock alone? Turn off “Alert on my iPhone too” in Tock's Settings; your iPhone then stays silent for Tock's reminders. A reminder due within a minute or so of being added in Tock may not reach your iPhone in time to alert there." } },
     { "@type": "Question", "name": "Does Tock send my reminders anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Tock doesn't use the network. Your reminders are saved in a file on your Mac. If you turn on sync with Apple Reminders, they are also kept in a list in Reminders, which Apple syncs through your iCloud account like your other reminders." } }
   ]
@@ -165,7 +167,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
     </div>
     <p class="meta" id="download-meta">Free · macOS 13 Ventura or later · Apple Silicon and Intel</p>
     <div class="demo">
-      <video src="images/demo.mp4" poster="images/demo-poster.jpg" width="2560" height="1600" autoplay muted loop playsinline preload="auto" aria-label="Adding a reminder with ⌃⌘R, then a repeating one, opening the list from the menu bar, and completing a reminder from its alert card"></video>
+      <video src="images/demo.mp4" poster="images/demo-poster.jpg" width="2560" height="1600" autoplay muted loop playsinline preload="auto" aria-label="Adding a reminder with ⌃⌘R, then a repeating one, starting a timer that counts down in the menu bar, opening the list, and completing a reminder from its alert card"></video>
     </div>
   </div>
 </header>
@@ -183,11 +185,12 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <li><code>Team lunch this Friday at noon</code><span class="res"><span class="arrow">→</span><span class="when">Fri 12:00</span></span></li>
         <li><code>Standup every weekday at 9:30</code><span class="res"><span class="arrow">→</span><span class="when">Weekdays 09:30</span></span></li>
         <li><code>Pay rent on the 1st every month</code><span class="res"><span class="arrow">→</span><span class="when">Monthly, 1st</span></span></li>
+        <li><code>Pasta timer 8 min</code><span class="res"><span class="arrow">→</span><span class="when">8:00, counting down</span></span></li>
       </ul>
       <ul class="facts">
-        <li><strong>Plain English</strong>Write the time the way you'd say it, from “tomorrow at 5” to “in 90s” for a quick timer, or “every weekday at 9:30” for one that repeats. Tock shows what it understood before you press Enter.</li>
-        <li><strong>Just a menu bar icon</strong>No Dock icon and no window to manage. A clock in the menu bar, and that's it.</li>
-        <li><strong>Lightweight</strong>A small native Swift app. No account, and nothing sent anywhere.</li>
+        <li><strong>Plain English</strong>Write the time the way you'd say it, from “tomorrow at 5” to “in 90s”, or “every weekday at 9:30” for one that repeats. Tock shows what it understood before you press Enter.</li>
+        <li><strong>Timers</strong>Type “timer 10m” or “pasta timer 8 min”. It counts down in the list and beside the menu bar icon. Timers run on your Mac only.</li>
+        <li><strong>Small and out of the way</strong>A native Swift app with no Dock icon and no window to manage, only a clock in the menu bar. No account, and nothing sent anywhere.</li>
         <li><strong>On your iPhone too</strong>Turn on sync and your reminders are also in a list in Apple Reminders. Changes go both ways.</li>
       </ul>
     </div>
@@ -203,6 +206,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
       <ul class="facts">
         <li><strong>Both ways</strong>Add, edit, complete or delete a reminder in Tock or in Reminders and the other follows.</li>
         <li><strong>Only one list</strong>Tock syncs with its own list. Your other Reminders lists are left alone.</li>
+        <li><strong>Reminders, not timers</strong>Timers stay on your Mac. They aren't copied to Reminders, and your iPhone doesn't alert for them.</li>
         <li><strong>Alerts on your iPhone</strong>Reminders alerts there too, so you still hear about it when your Mac is closed. <a href="#phone-alerts">Avoid a second alert on your Mac</a>.</li>
       </ul>
     </div>
@@ -235,8 +239,12 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
         <dd>Tock is a faster way to set quick, timed reminders on your Mac. You add one with a keyboard shortcut from any app, in a single line of plain English, without opening an app or filling in a form. It lives in the menu bar and needs no account. It can also work with Apple Reminders: turn on sync and your Tock reminders are kept in a list there.</dd>
         <dt>Can Tock set repeating reminders?</dt>
         <dd>Yes. Type how often in plain English, like “every day at 8”, “every weekday at 9:30”, “every other Monday”, “pay rent on the 28th every month” or “every 8 hours”. Completing a repeating reminder sets its next time.</dd>
+        <dt id="timers">Can Tock set a timer?</dt>
+        <dd>Yes. In the same bar you add reminders with, start with “timer”, or put it after a length or a name: “timer 10m”, “set a timer for 5 minutes”, “pasta timer 8 min” or “timer until 5pm”. The timer gets its own row at the top of the list, and the time left counts down beside Tock's icon in the menu bar. When it ends you get Tock's usual alert, with Done and Restart. Click a running timer's ring to stop it.</dd>
+        <dt>Do timers sync with Apple Reminders or show on my iPhone?</dt>
+        <dd>No. Timers are separate from reminders and run only on the Mac where you start them. They are not copied to Apple Reminders, so a timer doesn't appear or alert on your iPhone, even with sync turned on. If you want your iPhone to tell you too, add a reminder instead, like “check the oven in 10 min”: reminders sync, timers don't.</dd>
         <dt>Does Tock sync with Apple Reminders or my iPhone?</dt>
-        <dd>Yes, if you turn it on in Settings. Tock keeps a list named “Tock” in Apple Reminders in step with its own, both ways: add, edit, complete or delete a reminder on either side and the other follows. Reminders shows that list on your iPhone, so your Tock reminders are there too. Your other Reminders lists are left alone.</dd>
+        <dd>Yes, if you turn it on in Settings. Tock keeps a list named “Tock” in Apple Reminders in step with its own, both ways: add, edit, complete or delete a reminder on either side and the other follows. Reminders shows that list on your iPhone, so your Tock reminders are there too. Your other Reminders lists are left alone. Timers are not synced: they stay on your Mac.</dd>
         <dt id="phone-alerts">How do I get alerts on my iPhone without two on my Mac?</dt>
         <dd>With sync on, Apple Reminders alerts for your Tock reminders as well, so your iPhone tells you when your Mac is closed. On the Mac that means two alerts: Tock's card and Apple's notification. To keep only Tock's there, open System Settings → Notifications → Reminders on the Mac and turn off Allow Notifications. The catch: that setting is for the whole Reminders app, so Apple's notifications for all your Reminders lists go quiet on that Mac, not only the Tock list. Your iPhone still alerts for every list, and Tock still alerts on the Mac for the reminders in its own list. Prefer alerts from Tock alone? Turn off “Alert on my iPhone too” in Tock's Settings; your iPhone then stays silent for Tock's reminders. A reminder due within a minute or so of being added in Tock may not reach your iPhone in time to alert there.</dd>
         <dt>Does Tock send my reminders anywhere?</dt>
