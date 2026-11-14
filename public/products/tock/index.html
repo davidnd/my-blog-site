@@ -123,9 +123,10 @@ h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; let
 .examples { list-style: none; padding: 0; margin: 30px auto 0; display: grid; gap: 14px; justify-content: center; text-align: left; }
 .examples li { display: grid; gap: 4px; justify-items: start; }
 @media (min-width: 640px) {
-  .examples { grid-template-columns: max-content max-content; gap: 12px 14px; align-items: baseline; }
+  .examples { grid-template-columns: max-content max-content; gap: 12px 28px; align-items: baseline; }
   .examples li { display: contents; }
 }
+.examples code { background: none; padding: 0; }
 .examples .res { white-space: nowrap; }
 .examples .arrow { color: var(--muted); margin-right: 6px; }
 .examples .when { color: var(--accent); font-weight: 600; }
