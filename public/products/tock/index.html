@@ -114,7 +114,8 @@ code { font: 0.88em ui-monospace, "SF Mono", Menlo, monospace; background: var(-
 section { padding: 72px 0; }
 h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.01em; }
 .sub { color: var(--muted); margin: 0 0 32px; max-width: 640px; }
-.how { max-width: 760px; margin: 0 auto; text-align: center; }
+.how, .narrow { max-width: 760px; margin: 0 auto; }
+.how { text-align: center; }
 .how .sub { margin-left: auto; margin-right: auto; }
 .keys { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 17px; color: var(--muted); margin: 0 0 26px; }
 .keys kbd { font-size: 17px; padding: 5px 11px; color: var(--text); }
@@ -210,7 +211,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
   </section>
 
   <section class="install" id="install">
-    <div class="wrap">
+    <div class="wrap narrow">
       <h2>Install</h2>
       <p class="sub">Tock is free. It runs on macOS 13 Ventura or later, on Apple Silicon and Intel Macs.</p>
       <ol class="steps">
@@ -225,7 +226,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
     </div>
   </section>
   <section id="faq">
-    <div class="wrap">
+    <div class="wrap narrow">
       <h2>Questions</h2>
       <dl class="faq">
         <dt>Is Tock free?</dt>
@@ -250,7 +251,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
     </div>
   </section>
   <section class="support">
-    <div class="wrap">
+    <div class="wrap narrow">
       <p>Tock is free. If it saves you a few minutes, you can chip in.</p>
       <a href="https://ko-fi.com/davidnd" rel="noopener">☕ Support Tock on Ko-fi</a>
     </div>
@@ -258,7 +259,7 @@ footer .wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space
 </main>
 
 <footer>
-  <div class="wrap">
+  <div class="wrap narrow">
     <span>Tock · Made by <a href="https://davidnd.dev/">David Nguyen</a></span>
     <span><a href="/products/">More apps</a></span>
   </div>
