@@ -2,6 +2,7 @@
 title: "Tock: a reminder in five seconds"
 description: "I made a tiny Mac menu bar app for the things I want to do later but don't have time to write down properly."
 pubDate: "2026-11-09"
+updatedDate: "2026-11-14"
 tags: ["tock", "macos", "productivity"]
 ---
 
@@ -35,5 +36,41 @@ It's most useful when you're juggling a few things at once and want to push one
 of them off without losing it, or when a thought hits you mid-task and you just
 need to get it out of your head. That's most of my day, so I use it constantly.
 
-It's free and runs on macOS 13 or later. You can grab it on
+I've been using it for a while, actually. I wrote the first version in April
+2023, by hand, back before anyone was vibe coding anything. It was called MiniMind
+then. I wanted to learn how desktop apps work, and coming from JavaScript, Electron
+was the obvious pick. Slack and a lot of other apps were built on it at the time.
+My wife and I have used MiniMind ever since, but it stayed just ours because of
+the UI. I'm not a frontend person, and no matter how much time I put into it, it
+looked like it was made by a backend engineer, because it was.
+
+This year I asked Claude to redesign it, and the result is far more modern and
+polished than anything I would have made on my own. It's the first version I've felt good about
+showing other people. It needed a new name too, since I recently found out MiniMind
+is now an open-source project for training small LLMs. That project came after my
+app, but it has a lot more users than my two. So I asked Claude for a name as well,
+and it suggested Tock. There are a few other apps called Tock, but it fits, so I
+kept it.
+
+Then I asked Claude to rewrite it in native Swift. It did it in one shot, and
+the only things I had to fix were a few minor UI bugs. The Electron version was a
+90MB download and took up about 230MB once installed, for an app that sets
+reminders. The Swift version is a 1.5MB download and 7MB installed. I still
+find that a little hard to believe.
+
+The funny part is that the same wave that made Tock good enough to share also made
+it a little less necessary. In 2023 you couldn't ask Siri for any of this. With
+macOS 27.2 and the new Siri and Apple Intelligence, you can. Tell it to remind you
+to review John's PR in 30 minutes and it will.
+
+I still reach for Tock, for two reasons. The first is speed. Siri has to run what
+you said through a language model before anything happens, and in my tests that
+took up to ten seconds. Tock doesn't call a model or touch the network, so the
+reminder exists the moment I press Enter. The second is the preview. Tock shows
+what it understood before anything is saved, so if it got something wrong I fix it
+before I commit. Siri creates the reminder first and tells you after. A few times it
+got it wrong, and I had to go into Reminders and delete the bad one myself, which is
+exactly the kind of fiddling I made Tock to get away from.
+
+Tock is free and runs on macOS 13 or later. You can grab it on
 [the Tock page](/products/tock/).
