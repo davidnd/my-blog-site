@@ -431,6 +431,14 @@ h3 {
   border-top: 1px solid var(--line);
 }
 
+/* giscus's default.css gives the iframe `color-scheme: light dark`, but our
+   theme inside it is light-only. When the OS is in dark mode the two schemes
+   disagree and the browser paints an opaque white backdrop behind the frame.
+   Pin the frame to light so it stays transparent over the cream page. */
+.comments .giscus-frame {
+  color-scheme: light;
+}
+
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus,
 .comments[data-theme-file="/giscus-theme-reactions.css"] .giscus-frame {
   min-height: 6.5rem;
