@@ -125,7 +125,8 @@ h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; let
 .examples .res { white-space: nowrap; }
 .examples .arrow { color: var(--muted); margin-right: 6px; }
 .examples .when { color: var(--accent); font-weight: 600; }
-.facts { list-style: none; padding: 0; margin: 44px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 28px; text-align: left; }
+.facts { list-style: none; padding: 0; margin: 44px 0 0; display: grid; grid-template-columns: 1fr; gap: 12px 28px; text-align: left; }
+@media (min-width: 700px) { .facts { grid-template-columns: repeat(3, 1fr); } }
 .facts li { color: var(--muted); font-size: 15.5px; }
 .facts strong { color: var(--text); display: block; font-size: 16px; }
 
@@ -141,7 +142,8 @@ h2 { font-size: clamp(28px, 4vw, 36px); line-height: 1.15; margin: 0 0 12px; let
 .support a { display: inline-block; padding: 9px 18px; border-radius: 999px; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 600; text-decoration: none; }
 .support a:hover { background: var(--accent-soft); }
 .note { margin-top: 26px; padding: 16px 18px; border-radius: 12px; background: var(--accent-soft); font-size: 15.5px; max-width: 760px; }
-.note pre { margin: 10px 0 0; overflow-x: auto; }
+.note pre { margin: 10px 0 0; }
+.note pre code { display: block; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .demo video { display: block; width: 100%; height: auto; }
 .demo.inline { margin: 0 auto; border-radius: 14px; box-shadow: 0 18px 50px rgba(30, 27, 75, .18); }
 .sync { padding-top: 0; }
