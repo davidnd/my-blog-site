@@ -26,7 +26,7 @@
     #message { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; z-index:2; text-align:center; text-transform:uppercase; font-weight:1000; letter-spacing:.08em; text-shadow:0 3px 18px #000,0 0 24px currentColor; }
     #message.hidden { display:none; }
     #message .callout { font-size:clamp(26px,6vmin,56px); animation:pop .34s ease-out; }
-    #message small { display:block; margin-top:8px; color:#fff; font-size:.32em; letter-spacing:.18em; }
+    #message small { display:block; margin-top:8px; padding-inline:12px; color:#fff; font-size:.42em; letter-spacing:.02em; text-transform:none; font-weight:800; }
     @keyframes pop { from { transform:scale(.55); opacity:0 } to { transform:scale(1); opacity:1 } }
     .overlay { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:18px; background:rgba(3,5,20,.78); backdrop-filter:blur(8px); overflow:auto; }
     .overlay.hidden { display:none; }
@@ -57,7 +57,7 @@
     .btn:hover,.btn:focus-visible { filter:brightness(1.12); outline:2px solid #fff; outline-offset:2px; }
     .btn.secondary { color:#eef5ff; background:#1c285c; box-shadow:none; border:1px solid rgba(190,214,255,.2); }
     .btn.pink { background:linear-gradient(135deg,#ff75be,#ff3f8e); color:#210512; }
-    .final-score { margin:15px 0 20px; font-size:48px; font-weight:1000; font-variant-numeric:tabular-nums; }
+    .final-score { margin:15px 0 8px; font-size:48px; font-weight:1000; font-variant-numeric:tabular-nums; }
     .victory h2 { color:#ffe45b; text-shadow:0 0 24px rgba(255,228,91,.5); }
     @media (max-width:560px) { #hud { gap:6px; padding-inline:7px; } .score { min-width:138px; gap:6px; } .score b { font-size:24px; } #difficulty-label { display:none; } .icon-btn { width:39px; height:39px; } #stage { padding-inline:5px; } }
     @media (orientation:landscape) and (max-height:560px) {
@@ -74,7 +74,7 @@
 <body>
 <main id="app">
   <header id="hud" class="hidden" aria-label="Match controls">
-    <div class="score"><span class="you">YOU <b id="player-score">0</b></span><i>:</i><span class="bot"><b id="bot-score">0</b> BOT</span></div>
+    <div class="score"><span class="you">YOU <b id="player-score">0</b></span><i>:</i><span class="bot"><b id="bot-score">0</b> <span id="rival-name">BOT</span></span></div>
     <span id="difficulty-label">Medium</span>
     <button class="icon-btn" id="hud-music" aria-label="Toggle music" title="Toggle music">♫</button>
     <button class="icon-btn" id="hud-sfx" aria-label="Toggle sound effects" title="Toggle sound effects">♪</button>
@@ -114,7 +114,7 @@
 
 <section id="end" class="overlay hidden">
   <div class="panel" id="end-panel">
-    <p class="kicker">Match Complete</p><h2 id="end-title">Victory!</h2><div class="final-score" id="final-score">10 : 0</div>
+    <p class="kicker">Match Complete</p><h2 id="end-title">Victory!</h2><div class="final-score" id="final-score">10 : 0</div><p class="sub" id="end-line" style="color:#ff74ba;font-weight:800"></p>
     <div class="actions"><button class="btn pink" id="again-btn">Play Again</button><button class="btn secondary" id="change-btn">Change Difficulty</button><button class="btn secondary" id="end-menu-btn">Return to Main Menu</button></div>
   </div>
 </section>
@@ -128,6 +128,10 @@
   let fxW = 0, fxH = 0;
   const W = 600, H = 900, CENTER = H / 2, GOAL_W = 230, GOAL_L = (W - GOAL_W) / 2;
   const PAD = 24; // extra canvas space above/below the field so the goal slots can cut outward
+  // PLAYER_MAX is the reference speed the bots' shot power is measured against. The player's
+  // paddle itself keeps up with the pointer (PLAYER_FOLLOW), and a hit reaches full power at
+  // PLAYER_FULL_POWER: a firm flick, not the fastest swipe possible.
+  const PLAYER_FOLLOW = 3000, PLAYER_FULL_POWER = 700;
   const PUCK_R = 16, PADDLE_R = 38, PLAYER_MAX = 1050, PLAYER_MAX_PUCK_SPEED = 1450, MAX_PUCK_SPEED = 1700, WIN_SCORE = 10;
   const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
   const rand = (a,b) => a + Math.random() * (b-a);
@@ -137,25 +141,61 @@
   const mouthDip = x => clamp(Math.min(x - GOAL_L, W - GOAL_L - x) / 56, 0, 1) * 18;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // discipline (0..1): how hard the bot is to lure out of its goal. At 1 it ignores a
-  // puck the player can still reach and guards the goal; at 0 it chases wherever the
-  // puck is drifting, so a soft pass toward your own side wall pulls it away. Tuned so
-  // the follow-up shot after that bait scores about 68% on Easy, 46% on Medium, 22% on
-  // Hard and 5% on Extremely Hard. Easy's bot is too slow for this number to matter much.
+  // The skill ladder: five complete bots, weakest to strongest. A level sits anywhere on it
+  // (1.5 is halfway between the second and third), so its strength is one number.
+  const ladder = [
+    { speed:400,  accel:1100, reaction:.28,  error:52, predict:.42, attack:.42, home:124, strike:1.20, shot:1.00, minShot:.28, shotSpeed:1250, wander:.16 },
+    { speed:650,  accel:1900, reaction:.13,  error:18, predict:.80, attack:.82, home:140, strike:1.42, shot:1.20, minShot:.55, shotSpeed:1450, wander:0 },
+    { speed:840,  accel:2700, reaction:.065, error:6,  predict:.96, attack:.97, home:150, strike:1.62, shot:1.45, minShot:.72, shotSpeed:1580, wander:0 },
+    { speed:1050, accel:3800, reaction:.032, error:1,  predict:1,   attack:1,   home:162, strike:1.80, shot:1.70, minShot:.90, shotSpeed:1700, wander:0 },
+    { speed:1300, accel:5200, reaction:.016, error:0,  predict:1,   attack:1,   home:170, strike:1.95, shot:1.90, minShot:1.00, shotSpeed:1700, wander:0 }
+  ];
+  // discipline (0..1): how hard the bot is to lure out of its goal, by a soft pass toward
+  // your own side wall or by slamming the puck into it. At 1 it ignores a puck the player
+  // can still reach and guards the goal; at 0 it follows wherever the puck is going.
+  function skill(label, level, discipline){
+    const low=Math.min(Math.floor(level),ladder.length-2),a=ladder[low],b=ladder[low+1],t=level-low,d={label,discipline};
+    for(const k in a)d[k]=lerp(a[k],b[k],t);
+    return d;
+  }
+  // Tuned by feel in the iOS version of this game; keep the two in step.
   const difficulty = {
-    easy:    { label:'Easy', speed:400,  accel:1100, reaction:.28,  error:52, predict:.42, attack:.42, home:124, strike:1.20, shot:1.00, minShot:.28, shotSpeed:1250, discipline:.8 },
-    medium:  { label:'Medium', speed:650,  accel:1900, reaction:.13,  error:18, predict:.80, attack:.82, home:140, strike:1.42, shot:1.20, minShot:.55, shotSpeed:1450, discipline:.25 },
-    hard:    { label:'Hard', speed:840,  accel:2700, reaction:.065, error:6,  predict:.96, attack:.97, home:150, strike:1.62, shot:1.45, minShot:.72, shotSpeed:1580, discipline:.35 },
-    extreme: { label:'Extremely Hard',speed:1050,accel:3800, reaction:.032, error:1,  predict:1,   attack:1,   home:162, strike:1.80, shot:1.70, minShot:.90, shotSpeed:1700, discipline:.55 }
+    easy:    skill('Easy', 1.0, 0),
+    medium:  skill('Medium', 1.6, .5),
+    hard:    skill('Hard', 2.7, .68),
+    extreme: skill('Extremely Hard', 3.7, .8)
   };
+  // Each level is a named rival with its own lines, dealt without repeats.
+  const rivals = {
+    easy: {"name": "Pixel", "concede": ["Whoa, nice one!", "How did you do that?", "Good shot!", "I blinked!", "Was I supposed to stop that?", "I was looking at the lights.", "Ooh. Do that again, slower.", "My paddle was right there. Ish.", "I thought it would bounce.", "I'm writing that one down.", "It went under me. Can it do that?", "Wait, we started?", "That's my favourite goal so far.", "I waved at it. It didn't stop.", "Okay, that one was on me.", "Is the goal always that big?"], "score": ["I did it!", "Did you see that?", "Beginner's luck!", "Yay!", "Was that okay? Sorry. Not sorry?", "I was aiming for that! Sort of.", "It went in! They go in!", "I'm telling everyone.", "Can we count that twice?", "I closed my eyes for that one.", "That's a goal, right? I checked.", "My first one today!", "I surprised both of us.", "I'm getting the hang of this!", "Did I do that on purpose? Yes.", "High five! Oh. Paddles. Never mind.", "Ha! Got you!", "Who's the beginner now?"], "lost": ["Good game! One more?", "You're really good at this!", "I learned so much. Mostly from losing.", "Can you teach me that last one?", "I had fun anyway!", "Next time I'll blink less."], "won": ["I won? I won!", "Wait, really? Check the score.", "I'd like to thank my paddle.", "Best day ever. Rematch?", "I don't know how. Don't tell me.", "Good game! You nearly had me."]},
+    medium: {"name": "Turbo", "concede": ["Lucky shot. Probably.", "Okay, okay.", "Not bad.", "I was going too fast to stop.", "I overtook the puck. Oops.", "Fast is not the same as there.", "I zigged. Should've zagged.", "My brakes are for decoration.", "I saw it. I just didn't arrive.", "That one had my name on it.", "I was warming up. Still am.", "Whoosh. That was me, missing.", "Nice. I felt the breeze.", "I'll blame the paddle.", "Went left with great confidence.", "Speed: ten. Direction: two."], "score": ["Zoom!", "Keep up!", "Blink and you miss it.", "Fast enough for you?", "I arrived on time for once!", "Even I didn't see that.", "That's what the speed is for.", "Told you I was warming up.", "Straight line! My favourite kind.", "The plan was 'hit it hard'.", "I'm as surprised as you are.", "Brakes off, goal on.", "Fastest thing I did all day.", "I stopped in time and everything.", "Vroom. That's the whole speech.", "I aimed! A little!", "Too easy.", "Try keeping up next time.", "Were you ready? Didn't look it."], "lost": ["Rematch. Right now.", "Okay, you're quick too.", "I ran out of fast.", "Good game. I need a pit stop.", "You win. I'm blaming the tyres.", "That was fun. Again, faster!"], "won": ["Photo finish! Well, sort of.", "Good game! That was a sprint.", "I kept it on the track this time.", "Phew. That was closer than it looked.", "Victory lap! A short one.", "Same again? I'm still warmed up."]},
+    hard: {"name": "Viper", "concede": ["Noted.", "Hm.", "Enjoy it.", "Fine. That was good.", "I'll allow it.", "I had a plan. That wasn't in it.", "Interesting. Annoying, but interesting.", "I was being mysterious. Too mysterious.", "That's going in my diary.", "I meant to leave that gap. I didn't.", "Well. That happened.", "My poker face is hiding a lot.", "I'd clap, but I'm holding a paddle.", "Cold-blooded. I respect it.", "I blinked. I don't usually blink.", "Remind me to cover that side."], "score": ["Sss.", "There it is.", "Patience pays.", "You left the door open.", "I do have a good side.", "That one I did plan.", "Quietly pleased.", "I'm smiling. You can't tell.", "One for the diary. A nice one.", "Sorry. Reflex.", "I waited all rally for that.", "Smooth, if I say so myself.", "Did that look effortless? Good.", "A small victory dance, internally.", "I've been practising that.", "No hard feelings.", "Predictable.", "Too slow.", "I saw that coming from last week."], "lost": ["Impressive. Again.", "Well played. I mean it.", "I've run out of clever remarks.", "You earned that one.", "I'll be thinking about this all night.", "Fine. You're good. Rematch?"], "won": ["Good game. You made me work.", "Closer than I'd like to admit.", "I'll allow myself one small smile.", "That was a proper match.", "You'll get me next time. Maybe.", "Thank you for the game."]},
+    extreme: {"name": "Omega", "concede": ["Anomaly logged.", "Recalculating.", "Improbable.", "Adjusting.", "That was not in the manual.", "Filing a bug report.", "Have I tried turning myself off and on?", "Error 404: paddle not found.", "My prediction was 99% sure. Hm.", "Updating my opinion of you.", "I calculated everything but that.", "Processing... still processing.", "Goal detected. Feelings detected.", "I had 12 plans. You picked 13.", "Buffering.", "This will go in the training data."], "score": ["As calculated.", "Expected.", "Goal executed successfully.", "It worked. I am as relieved as you.", "One of my 12 plans. Number 7.", "Beep. That is my happy beep.", "Saving this to favourites.", "My maths teacher would be proud.", "Task complete. Starting next task.", "That is what the manual says to do.", "Probability was 61%. I rounded up.", "I ran the numbers. They ran well.", "Logging: good shot, me.", "No bugs in that one.", "Running celebrate.exe quietly.", "Please rate this goal five stars.", "Inevitable.", "You were 0.4 seconds late. Again.", "I could do that in sleep mode."], "lost": ["Error. This was not predicted.", "Updating my records. Congratulations.", "I need to speak to my developer.", "Result: you win. Mood: impressed.", "Rebooting with more respect.", "You are the bug I could not fix."], "won": ["Outcome confirmed. Good game.", "Match complete. You were 94% excellent.", "I won, but my fans are spinning.", "Thank you for the data. And the game.", "That was close for a machine.", "Saving this match. It was a good one."]}
+  };
+  const unusedLines = {};
+  let lastLine = '';
+  function nextLine(kind){
+    const key=mode+'.'+kind;let bag=unusedLines[key];
+    if(!bag||!bag.length){
+      bag=rivals[mode][kind].slice();
+      for(let i=bag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]];}
+      if(bag.length>1&&bag[bag.length-1]===lastLine)[bag[0],bag[bag.length-1]]=[bag[bag.length-1],bag[0]];
+      unusedLines[key]=bag;
+    }
+    return lastLine=bag.pop();
+  }
 
   let state = 'menu', previousState = 'menu', raf = 0, lastTime = 0;
-  let playerScore = 0, botScore = 0, mode = 'medium', nextServe = -1;
-  let countdown = 0, scoreLabel = '', shake = 0, goalFlash = 0, scorePulse = 0, endDelay = 0, pendingWinner = false;
+  let playerScore = 0, botScore = 0, mode = 'medium';
+  let shake = 0, goalFlash = 0, scorePulse = 0;
+  // Between a goal and the next puck the puck is in the goal, off the table. The next one
+  // appears at rest in the half of whoever conceded; there is no countdown.
+  let puckInPlay = true, serveWait = 0, servesTo = 'player', puckPop = 0, botServeHold = 0;
+  let calloutTime = 0, streak = 0, closingLine = '';
   let musicOn = true, sfxOn = true, pointerActive = false, pointerX = 0, pointerY = 0, locked = false;
   let botThink = 0, botAimX = W/2, botTactic = 'defend', botTacticTime = 0, botStriking = false, stuckTime = 0;
   const puck = {x:W/2,y:H/2,vx:0,vy:0,r:PUCK_R};
-  const player = {x:W/2,y:H-140,vx:0,vy:0,tx:W/2,ty:H-140,r:PADDLE_R,hitCooldown:0,contactArmed:true};
+  const player = {x:W/2,y:H-140,vx:0,vy:0,tx:W/2,ty:H-140,r:PADDLE_R,hitCooldown:0,contactArmed:true,swingX:0,swingY:0,fromX:W/2,fromY:H-140,boostTime:0};
   const bot = {x:W/2,y:140,vx:0,vy:0,tx:W/2,ty:140,r:PADDLE_R,hitCooldown:0,contactArmed:true};
   const trail = Array.from({length:18},()=>({x:W/2,y:H/2,a:0}));
   let trailHead = 0;
@@ -209,7 +249,7 @@
     puck.x=W/2;puck.y=H/2;puck.vx=0;puck.vy=0;
     player.x=player.tx=W/2;player.y=player.ty=H-140;player.vx=player.vy=0;
     bot.x=bot.tx=W/2;bot.y=bot.ty=140;bot.vx=bot.vy=0;
-    player.hitCooldown=bot.hitCooldown=0;player.contactArmed=bot.contactArmed=true;
+    player.hitCooldown=bot.hitCooldown=0;player.contactArmed=bot.contactArmed=true;player.swingX=player.swingY=0;player.fromX=player.x;player.fromY=player.y;player.boostTime=0;puckInPlay=true;puckPop=0;botServeHold=0;
     trail.forEach(p=>{p.x=puck.x;p.y=puck.y;p.a=0;});botThink=0;botTactic='defend';botTacticTime=0;botStriking=false;stuckTime=0;
   }
   function fitCanvas(){
@@ -219,22 +259,51 @@
     const scale=Math.max(.1,Math.min(availableW/W,availableH/(H+PAD*2)));
     canvas.style.width=`${Math.floor(W*scale)}px`;canvas.style.height=`${Math.floor((H+PAD*2)*scale)}px`;
   }
-  function serve(){
-    const angle=rand(-.42,.42), speed=480;
-    // Discard any movement collected while the puck was waiting to serve.
-    player.tx=player.x;player.ty=player.y;player.vx=player.vy=0;
-    puck.vx=Math.sin(angle)*speed; puck.vy=nextServe*Math.cos(angle)*speed;
-    nextServe*=-1; countdown=0; scoreLabel=''; $('message').classList.add('hidden');
+  // Puts a resting puck in the half of whoever conceded. Nothing moves until they hit it.
+  // The paddles are left where they are.
+  function placePuck(){
+    const p=servesTo==='player'?player:bot,y=CENTER+(servesTo==='player'?190:-190),clear=PUCK_R+PADDLE_R+14;
+    // Not on top of the paddle, if it happens to be standing on the spot.
+    let x=[0,-130,130].map(o=>W/2+o).find(x=>hypot(x-p.x,y-p.y)>clear);if(x===undefined)x=W/2;
+    puck.x=x;puck.y=y;puck.vx=puck.vy=0;puckInPlay=true;puckPop=.16;
+    player.contactArmed=bot.contactArmed=true;player.boostTime=0;botThink=0;botTactic='defend';botTacticTime=0;botStriking=false;stuckTime=0;
+    // The bot takes about a second to line up its own serve, so the player has time to
+    // get back in front of their goal after scoring.
+    botServeHold=servesTo==='bot'?rand(.8,.95):0;
+    trail.forEach(t=>{t.x=x;t.y=y;t.a=0;});
   }
-  function beginCountdown(label=''){ countdown=3.55;scoreLabel=label; }
+  // The goal call and the rival's remark. It fades on its own; play never waits for it.
+  function showCallout(title,subtitle,isBot){
+    const m=$('message'),box=document.createElement('div'),small=document.createElement('small');
+    box.className='callout';box.style.color=isBot?'#ff74ba':'#63efff';box.textContent=title;small.textContent=subtitle;box.appendChild(small);
+    m.replaceChildren(box);m.classList.remove('hidden');calloutTime=1.8;
+  }
+  function announceGoal(playerScored){
+    const rival=rivals[mode].name,last=WIN_SCORE-1;let title,quote;
+    if(playerScored){
+      streak++;quote=nextLine('concede');
+      if(playerScore>=WIN_SCORE){title='You win!';quote=closingLine=nextLine('lost');}
+      else if(playerScore===last)title='Match point!';
+      else if(streak>=3)title='On fire!';
+      else if(playerScore===botScore)title='All square!';
+      else title=['Goal!','Nice shot!','Boom!','Yes!'][Math.floor(Math.random()*4)];
+    }else{
+      streak=0;quote=nextLine('score');
+      if(botScore>=WIN_SCORE){title=`${rival} wins`;quote=closingLine=nextLine('won');}
+      else if(botScore===last)title=`${rival} match point`;
+      else if(playerScore===botScore)title=`${rival} levels it`;
+      else title=`${rival} scores`;
+    }
+    showCallout(title,`${rival}: ${quote}`,!playerScored);
+  }
   function startMatch(){
-    initAudio();mode=selectedMode();playerScore=botScore=0;endDelay=0;nextServe=Math.random()<.5?-1:1;particles.length=0;hideFx();resetPositions();updateScore();
+    initAudio();mode=selectedMode();playerScore=botScore=0;streak=0;particles.length=0;hideFx();resetPositions();servesTo='player';placePuck();puckPop=0;updateScore();$('rival-name').textContent=rivals[mode].name;
     $('difficulty-label').textContent=difficulty[mode].label;$('menu').classList.add('hidden');$('pause').classList.add('hidden');$('end').classList.add('hidden');$('hud').classList.remove('hidden');
-    state='playing';beginCountdown('First to 10');lastTime=performance.now();startMusic();startLoop();requestLock();clickSound();
+    state='playing';showCallout(`You vs ${rivals[mode].name}`,`First to ${WIN_SCORE}. Your puck.`,false);lastTime=performance.now();startMusic();startLoop();requestLock();clickSound();
   }
   function restartMatch(){startMatch();}
   function showMenu(){
-    state='menu';releaseLock();stopLoop();stopMusic();hideFx();resetPositions();draw();$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('end').classList.add('hidden');$('menu').classList.remove('hidden');clickSound();
+    state='menu';releaseLock();stopLoop();stopMusic();hideFx();resetPositions();$('message').classList.add('hidden');draw();$('hud').classList.add('hidden');$('pause').classList.add('hidden');$('end').classList.add('hidden');$('menu').classList.remove('hidden');clickSound();
   }
   function pauseGame(auto=false){
     if(state!=='playing')return;previousState='playing';state='paused';releaseLock();stopLoop();stopMusic();pointerActive=false;$('pause').classList.remove('hidden');
@@ -242,16 +311,18 @@
   }
   function resumeGame(){if(state!=='paused')return;initAudio();$('pause').classList.add('hidden');state='playing';lastTime=performance.now();startMusic();startLoop();requestLock();clickSound();}
   function endMatch(playerWon){
-    state='over';releaseLock();stopLoop();stopMusic();$('end').classList.remove('hidden');$('end-panel').classList.toggle('victory',playerWon);$('end-title').textContent=playerWon?'Victory!':'Defeat';$('final-score').textContent=`${playerScore} : ${botScore}`;
+    state='over';releaseLock();stopLoop();stopMusic();$('end').classList.remove('hidden');$('end-panel').classList.toggle('victory',playerWon);$('end-title').textContent=playerWon?'Victory!':'Defeat';$('final-score').textContent=`${playerScore} : ${botScore}`;$('end-line').textContent=`${rivals[mode].name}: ${closingLine}`;$('message').classList.add('hidden');
     if(playerWon){ spawnCelebration();victorySound();startCelebrationLoop(); } else { defeatSound();draw(); }
   }
   function updateScore(){ $('player-score').textContent=playerScore;$('bot-score').textContent=botScore;scorePulse=.45; }
 
   function score(playerWon){
-    if(playerWon){playerScore++;scoreLabel='You scored!';tone(660,.14,'triangle',.1);tone(880,.22,'triangle',.08,.09);}else{botScore++;scoreLabel='Bot scored';tone(150,.3,'sawtooth',.06);}
+    if(playerWon){playerScore++;tone(660,.14,'triangle',.1);tone(880,.22,'triangle',.08,.09);}else{botScore++;tone(150,.3,'sawtooth',.06);}
     updateScore();goalFlash=.7;shake=.38;burst(W/2,playerWon?48:H-48,playerWon?'#32e8ff':'#ff3fa4',34,460);
-    if(playerScore>=WIN_SCORE||botScore>=WIN_SCORE){ endDelay=.55;pendingWinner=playerScore>=WIN_SCORE;puck.vx=puck.vy=0;return; }
-    resetPositions();beginCountdown(scoreLabel);
+    // The puck has gone into the goal and is off the table until the next one appears.
+    puckInPlay=false;servesTo=playerWon?'bot':'player';
+    serveWait=playerScore>=WIN_SCORE||botScore>=WIN_SCORE?.9:.55;
+    announceGoal(playerWon);
   }
 
   function reflectedPuckX(x){
@@ -292,10 +363,25 @@
       else{bot.tx=bot.x;bot.ty=d.home;}
       moveBotPaddle(d,dt);return;
     }
+    // Its own serve: glide in behind the resting puck and settle, then strike once the
+    // hold runs out. Ends early if anything sets the puck moving.
+    if(botServeHold>0){
+      botServeHold-=dt;
+      if(puck.vx===0&&puck.vy===0&&puck.y<CENTER){
+        botStriking=false;botTactic='defend';
+        bot.tx=clamp(puck.x+(bot.x<puck.x?-14:14),PADDLE_R,W-PADDLE_R);bot.ty=clamp(puck.y-PADDLE_R-PUCK_R-46,PADDLE_R+6,CENTER-PADDLE_R);
+        moveBotPaddle(d,dt);if(botServeHold<=0)botThink=0;return;
+      }
+      botServeHold=0;
+    }
     if(botThink<=0){
       botThink=d.reaction*rand(.9,1.12);
       const inBot=puck.y<CENTER,approaching=puck.vy<-80,puckSpeed=hypot(puck.vx,puck.vy),gap=PADDLE_R+PUCK_R;
-      const puckBehind=inBot&&puck.y<bot.y-6;
+      // Beaten: the puck is level with the paddle or past it, so the paddle is no longer
+      // between the puck and the goal. Once it starts chasing, it keeps chasing until it is
+      // back on the goal side, instead of giving up each time it draws level.
+      let puckBehind=inBot&&puck.y<bot.y-6;
+      if(inBot&&puck.vy<0)puckBehind=puck.y<bot.y+gap*(botTactic==='clear'?.75:.4);
       const attackable=inBot&&puck.y>bot.y-gap*.25&&puckSpeed<MAX_PUCK_SPEED*.92;
       // A disciplined bot believes the puck's path only as far as pathTrust says. A
       // gullible one believes any puck coming its way (and a drifting one a little).
@@ -313,13 +399,32 @@
 
       let targetX=W/2,targetY=d.home,retarget=.7;
       if(botTactic==='clear'){
-        const lead=clamp(hypot(puck.x-bot.x,puck.y-bot.y)/(d.speed*d.strike+puckSpeed*.3),.03,.18),future=predictPuckAfter(lead);
-        retarget=.95;botThink=Math.min(botThink,.045);
-        if(bot.y<=future.y-gap*.65){
-          botStriking=true;targetX=future.x;targetY=future.y+gap+100;
+        // The puck is on the goal side of the paddle. Touching it from here knocks it in,
+        // so the only safe play is to get between it and the goal and hit it back out.
+        // Go around it, never through it.
+        retarget=1;botThink=Math.min(botThink,.03);
+        const near=predictPuckAfter(.04);near.y=Math.max(near.y,PUCK_R);
+        const pace=d.speed*Math.max(1.3,d.strike*.92);
+        // The earliest moment the paddle can be waiting on the goal side of the puck.
+        let meet=null;
+        for(let step=1;step<=16;step++){
+          const t=step*.05,ahead=predictPuckAfter(t),floorY=PADDLE_R+6-mouthDip(ahead.x),behindY=ahead.y-gap-6;
+          if(behindY<floorY-12)break;
+          if((hypot(ahead.x-bot.x,behindY-bot.y)+30)/pace<=t){meet={x:ahead.x,y:Math.max(behindY,floorY)};break;}
+        }
+        if(bot.y<=near.y-gap*.55&&Math.abs(bot.x-near.x)<gap*.8){
+          // In behind it: drive it back down the table, a little toward the nearer wall.
+          botStriking=true;targetX=near.x+(near.x-W/2)*.35;targetY=near.y+gap+120;
+        }else if(bot.y>near.y-gap*.4&&Math.abs(bot.x-near.x)<gap+10){
+          // Directly in front of it: step out to the side first.
+          let side=bot.x>=near.x?1:-1;
+          if(near.x+side*(gap+20)<PADDLE_R||near.x+side*(gap+20)>W-PADDLE_R)side=-side;
+          targetX=near.x+side*(gap+20);targetY=near.y-40;
+        }else if(meet){
+          targetX=meet.x;targetY=meet.y;
         }else{
-          const side=future.x<W/2?1:-1;
-          targetX=future.x+side*(gap+28);targetY=Math.max(future.y-gap-24,PADDLE_R+6-mouthDip(targetX));
+          // It cannot be caught from behind. Stand in the goal mouth on its side and block the way in.
+          targetX=clamp(near.x,GOAL_L+8,W-GOAL_L-8);targetY=PADDLE_R+6-mouthDip(targetX);
         }
       }else if(botTactic==='intercept'){
         retarget=.94;targetY=clamp(d.home+100,d.home,285);
@@ -349,20 +454,34 @@
         // A fully disciplined bot never leaves the goal mouth.
         targetX=clamp(lerp(guardX,predicted,trust*.68),lerp(GOAL_L,PADDLE_R,gullible),lerp(W-GOAL_L,W-PADDLE_R,gullible))+rand(-d.error*.3,d.error*.3);
       }
-      if(mode==='easy'&&Math.random()<.16)targetX+=rand(-105,105);
+      if(d.wander>0&&Math.random()<d.wander)targetX+=rand(-105,105);
       botAimX=clamp(targetX,PADDLE_R,W-PADDLE_R);
       bot.tx=lerp(bot.tx,botAimX,retarget);bot.ty=lerp(bot.ty,clamp(targetY,PADDLE_R+6-mouthDip(botAimX),CENTER-PADDLE_R),retarget);
     }
     moveBotPaddle(d,dt);
   }
+  // Between pucks: drift back to the middle of the goal.
+  function restBot(dt){
+    const d=difficulty[mode];botStriking=false;botTactic='defend';bot.tx=W/2;bot.ty=d.home;moveBotPaddle(d,dt);
+  }
   function moveBotPaddle(d,dt){
     const dx=bot.tx-bot.x,dy=bot.ty-bot.y,dist=hypot(dx,dy);
-    const speedCap=d.speed*(botStriking?d.strike:botTactic==='clear'?1.3:botTactic==='attack'?1.18:1.08);
+    const speedCap=d.speed*(botStriking?d.strike:botTactic==='clear'?Math.max(1.3,d.strike*.92):botTactic==='attack'?1.18:1.08);
     // A strike plows through its target at full speed; only positioning moves ease in.
-    const desiredSpeed=Math.min(speedCap,dist*(botStriking?16:botTactic==='clear'?8:botTactic==='attack'?7:5.2));
+    const desiredSpeed=Math.min(speedCap,dist*(botStriking?16:botTactic==='clear'?26:botTactic==='attack'?7:5.2));
     const desiredX=dist>.5?dx/dist*desiredSpeed:0,desiredY=dist>.5?dy/dist*desiredSpeed:0;
-    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*(botStriking?2.6:botTactic==='clear'?1.8:botTactic==='attack'?1.6:1)*dt;
+    const changeX=desiredX-bot.vx,changeY=desiredY-bot.vy,change=hypot(changeX,changeY),maxChange=d.accel*(botStriking?2.6:botTactic==='clear'?2.4:botTactic==='attack'?1.6:1)*dt;
     if(change>maxChange){bot.vx+=changeX/change*maxChange;bot.vy+=changeY/change*maxChange;}else{bot.vx=desiredX;bot.vy=desiredY;}
+    // Never drive into a puck that is on the goal side of the paddle: that is how a bot
+    // scores on itself. Drop the part of the movement that heads for the puck and slide
+    // around it instead.
+    if(puckInPlay){
+      const px=puck.x-bot.x,py=puck.y-bot.y,away=hypot(px,py);
+      if(py<0&&away>.001&&away<PADDLE_R+PUCK_R+30){
+        const toward=(bot.vx*px+bot.vy*py)/away;
+        if(toward>0){bot.vx-=toward*px/away;bot.vy-=toward*py/away;}
+      }
+    }
     const step=hypot(bot.vx,bot.vy)*dt;
     if(step>=dist&&dist<18){bot.x=bot.tx;bot.y=bot.ty;bot.vx=bot.vy=0;}else{bot.x+=bot.vx*dt;bot.y+=bot.vy*dt;}
     const nx=clamp(bot.x,PADDLE_R,W-PADDLE_R),ny=clamp(bot.y,PADDLE_R+6-mouthDip(bot.x),CENTER-PADDLE_R);
@@ -375,16 +494,37 @@
   }
   function updatePlayer(dt){
     player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R,H-PADDLE_R-6+mouthDip(player.tx));
-    movePaddle(player,player.tx,player.ty,PLAYER_MAX,dt);
+    player.fromX=player.x;player.fromY=player.y;
+    movePaddle(player,player.tx,player.ty,PLAYER_FOLLOW,dt);
     const maxY=H-PADDLE_R-6+mouthDip(player.x);
     if(player.y>maxY)player.y=maxY;
+    if(dt>0){
+      player.vx=(player.x-player.fromX)/dt;player.vy=(player.y-player.fromY)/dt;
+      // The swing: paddle velocity averaged over the last few frames. Pointer events arrive
+      // less often than frames are drawn, so one frame reads as anything from standing still
+      // to several times the hand's speed. Hits are judged on this instead.
+      const blend=1-Math.exp(-dt/.028);
+      player.swingX+=(player.vx-player.swingX)*blend;player.swingY+=(player.vy-player.swingY)*blend;
+    }
   }
 
   function collidePaddle(p){
     const dx=puck.x-p.x,dy=puck.y-p.y,min=puck.r+p.r,release=min+p.r*.85,ds=dx*dx+dy*dy;
     if(ds>=min*min){if(!p.contactArmed&&ds>=release*release)p.contactArmed=true;return;}
     const dist=Math.sqrt(ds)||.001,nx=dx/dist,ny=dy/dist,over=min-dist;
-    const rvx=puck.vx-p.vx,rvy=puck.vy-p.vy,into=rvx*nx+rvy*ny,tangentX=rvx-into*nx,tangentY=rvy-into*ny;
+    // The puck is on the goal side of the bot's paddle. Anything the paddle does to it from
+    // here sends it at the bot's own goal, so the paddle gives way instead: it is moved off
+    // the puck, loses its speed toward it, and the puck only glances off.
+    if(p===bot&&ny<-.5){
+      p.x-=nx*over;p.y=Math.min(p.y-ny*over,CENTER-PADDLE_R);
+      const toward=p.vx*nx+p.vy*ny;if(toward>0){p.vx-=toward*nx;p.vy-=toward*ny;}
+      const incoming=puck.vx*nx+puck.vy*ny;
+      if(incoming<0){puck.vx-=incoming*nx;puck.vy-=incoming*ny;if(p.hitCooldown<=0){tone(260,.055,'square',.045);p.hitCooldown=.075;}}
+      p.contactArmed=false;botStriking=false;return;
+    }
+    // For the player, the paddle's motion for this hit is the recent swing, not this frame.
+    const isPlayer=p===player,pvx=isPlayer?p.swingX:p.vx,pvy=isPlayer?p.swingY:p.vy;
+    const rvx=puck.vx-pvx,rvy=puck.vy-pvy,into=rvx*nx+rvy*ny,tangentX=rvx-into*nx,tangentY=rvy-into*ny;
     const separation = p.contactArmed ? .4 : 1.8;
     puck.x+=nx*(over+separation);puck.y+=ny*(over+separation);
     // Keep resolving overlap, but apply only one physical impulse per contact.
@@ -393,6 +533,13 @@
     if(!p.contactArmed){
       puck.vx-=tangentX*.18;puck.vy-=tangentY*.18;
       if(into<0){puck.vx-=into*nx;puck.vy-=into*ny;}
+      // Follow-through: while the paddle is still on the puck, the puck keeps up with the
+      // power the swing has now reached, but never past a player's fastest shot.
+      if(isPlayer){
+        const power=clamp((pvx*nx+pvy*ny)/PLAYER_FULL_POWER,0,1),earned=390+power*(PLAYER_MAX_PUCK_SPEED-390),along=puck.vx*nx+puck.vy*ny;
+        if(power>.2&&along<earned){puck.vx+=(earned-along)*nx;puck.vy+=(earned-along)*ny;}
+        const sp=hypot(puck.vx,puck.vy);if(sp>PLAYER_MAX_PUCK_SPEED){puck.vx*=PLAYER_MAX_PUCK_SPEED/sp;puck.vy*=PLAYER_MAX_PUCK_SPEED/sp;}
+      }
       return;
     }
     const pinchedLeft=p.x<min+8&&puck.x<p.x,pinchedRight=p.x>W-min-8&&puck.x>p.x;
@@ -407,17 +554,19 @@
     if(into<0){
       // Only the paddle's velocity toward the puck adds shot power. A fast,
       // deliberate strike can now exceed the old fixed puck-speed ceiling.
-      const isBot=p===bot,d=isBot?difficulty[mode]:null,impactSpeed=Math.max(0,p.vx*nx+p.vy*ny);
-      const power=clamp(Math.max(impactSpeed/PLAYER_MAX*(isBot?d.shot:1),isBot&&botStriking?d.minShot:0),0,1);
+      const isBot=p===bot,d=isBot?difficulty[mode]:null,impactSpeed=Math.max(0,pvx*nx+pvy*ny);
+      const power=isBot?clamp(Math.max(impactSpeed/PLAYER_MAX*d.shot,botStriking?d.minShot:0),0,1):clamp(impactSpeed/PLAYER_FULL_POWER,0,1);
       puck.vx-=1.72*into*nx;puck.vy-=1.72*into*ny;
       const spinKill=.12+power*.08;puck.vx-=tangentX*spinKill;puck.vy-=tangentY*spinKill;
-      const transfer=.22+power*(isBot?.55:.38);puck.vx+=p.vx*transfer;puck.vy+=p.vy*transfer;
+      const transfer=.22+power*(isBot?.55:.38);puck.vx+=pvx*transfer;puck.vy+=pvy*transfer;
       const shotLimit=isBot?d.shotSpeed:PLAYER_MAX_PUCK_SPEED;
       const rawSpeed=hypot(puck.vx,puck.vy),boostedSpeed=390+power*(shotLimit-390);
       const speed=clamp(Math.max(rawSpeed,boostedSpeed),390,shotLimit),len=rawSpeed||1;puck.vx=puck.vx/len*speed;puck.vy=puck.vy/len*speed;
       if(p.hitCooldown<=0){burst(puck.x,puck.y,p===player?'#32e8ff':'#ff3fa4',8+Math.round(power*10),260+power*280);tone(p===player?310:260,.055,'square',.045+power*.035);if(power>.72&&!reducedMotion)shake=Math.max(shake,.16);p.hitCooldown=.045;}
       p.contactArmed=false;
-      if(isBot)botStriking=false;
+      // A player's hit can still gain power for a moment: a swing is usually still speeding
+      // up when it meets the puck.
+      if(isBot){botStriking=false;player.boostTime=0;}else p.boostTime=.07;
     }
   }
   function collidePost(px,py,audible=true){
@@ -448,8 +597,13 @@
     if(!inGoalMouth(puck.x)){puck.y=top?r:H-r;puck.vy=(top?1:-1)*Math.abs(puck.vy)*.97;wallHit(audible);}
   }
   function physics(dt){
-    const steps=Math.max(1,Math.ceil(dt/(1/240))),sd=dt/steps;
-    for(let i=0;i<steps;i++){
+    // Enough steps that neither the puck nor a fast swing moves far between checks. The
+    // player's paddle is swept from where it was to where it is now across those steps.
+    const endX=player.x,endY=player.y,sweep=hypot(endX-player.fromX,endY-player.fromY);
+    const steps=Math.min(40,Math.max(1,Math.ceil(dt*240),Math.ceil(sweep/10))),sd=dt/steps;
+    let scored=false;
+    for(let i=1;i<=steps&&!scored;i++){
+      player.x=lerp(player.fromX,endX,i/steps);player.y=lerp(player.fromY,endY,i/steps);
       puck.x+=puck.vx*sd;puck.y+=puck.vy*sd;
       const friction=Math.pow(.993,sd*60);puck.vx*=friction;puck.vy*=friction;
       resolveWalls(true);
@@ -458,8 +612,18 @@
       // through one (silently: no sound or sparks); only the goal mouth is open.
       resolveWalls(false);
       if(inGoalMouth(puck.x)){
-        if(puck.y<-6){score(true);return;}
-        if(puck.y>H+6){score(false);return;}
+        if(puck.y<-6){score(true);scored=true;}
+        else if(puck.y>H+6){score(false);scored=true;}
+      }
+    }
+    player.x=endX;player.y=endY;
+    if(scored)return;
+    if(player.boostTime>0){
+      player.boostTime-=dt;
+      const sp=hypot(puck.vx,puck.vy);
+      if(sp>0){
+        const power=clamp((player.swingX*puck.vx+player.swingY*puck.vy)/sp/PLAYER_FULL_POWER,0,1),earned=390+power*(PLAYER_MAX_PUCK_SPEED-390);
+        if(earned>sp){puck.vx*=earned/sp;puck.vy*=earned/sp;}
       }
     }
     let speed=hypot(puck.vx,puck.vy);
@@ -508,11 +672,13 @@
     goalFlash=Math.max(0,goalFlash-dt);scorePulse=Math.max(0,scorePulse-dt);shake=Math.max(0,shake-dt);wallSoundWait-=dt;
     player.hitCooldown=Math.max(0,player.hitCooldown-dt);bot.hitCooldown=Math.max(0,bot.hitCooldown-dt);
     document.querySelector('.score').style.transform=`scale(${1+scorePulse*.28})`;
-    if(endDelay>0){endDelay-=dt;updateParticles(dt);if(endDelay<=0)endMatch(pendingWinner);return;}
-    if(countdown>0){
-      const before=Math.ceil(countdown);countdown-=dt;const after=Math.ceil(countdown);
-      if(after!==before&&after>0&&after<=3)tone(440+after*70,.08,'square',.05);
-      if(countdown<=0)serve();updateParticles(dt);return;
+    if(calloutTime>0){calloutTime-=dt;if(calloutTime<=0)$('message').classList.add('hidden');}
+    puckPop=Math.max(0,puckPop-dt);
+    if(!puckInPlay){
+      // The puck is in the goal. Both paddles stay free to move while the next one is on its way.
+      serveWait-=dt;updatePlayer(dt);restBot(dt);updateParticles(dt);
+      if(serveWait<=0){if(playerScore>=WIN_SCORE||botScore>=WIN_SCORE)endMatch(playerScore>=WIN_SCORE);else placePuck();}
+      return;
     }
     updatePlayer(dt);updateBot(dt);physics(dt);updateParticles(dt);
     trailHead=(trailHead+1)%trail.length;const tr=trail[trailHead];tr.x=puck.x;tr.y=puck.y;tr.a=1;
@@ -557,15 +723,16 @@
     ctx.save();ctx.shadowBlur=25;ctx.shadowColor=color;const g=ctx.createRadialGradient(p.x-10,p.y-12,3,p.x,p.y,p.r);g.addColorStop(0,'#fff');g.addColorStop(.18,color);g.addColorStop(.7,color);g.addColorStop(1,'#07152d');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.lineWidth=5;ctx.strokeStyle='#fff';ctx.globalAlpha=.78;ctx.stroke();ctx.globalAlpha=.45;ctx.fillStyle='#020715';ctx.beginPath();ctx.arc(p.x,p.y,p.r*.43,0,Math.PI*2);ctx.fill();ctx.restore();
   }
   function drawPuck(){
+    if(!puckInPlay)return; // after a goal the puck is in the goal, not sitting on the line
+    const R=PUCK_R*(1-.8*puckPop/.16); // a new puck pops in
     for(let i=0;i<trail.length;i++){const p=trail[(trailHead+i+1)%trail.length];ctx.globalAlpha=p.a*.18*(i/trail.length);ctx.fillStyle='#dffcff';ctx.beginPath();ctx.arc(p.x,p.y,PUCK_R*(.3+.55*i/trail.length),0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
-    ctx.save();ctx.shadowBlur=22;ctx.shadowColor='#fff';const g=ctx.createRadialGradient(puck.x-5,puck.y-6,2,puck.x,puck.y,PUCK_R);g.addColorStop(0,'#fff');g.addColorStop(.35,'#d9faff');g.addColorStop(1,'#5bc7ec');ctx.fillStyle=g;ctx.beginPath();ctx.arc(puck.x,puck.y,PUCK_R,0,Math.PI*2);ctx.fill();ctx.restore();
+    ctx.save();ctx.shadowBlur=22;ctx.shadowColor='#fff';const g=ctx.createRadialGradient(puck.x-5,puck.y-6,2,puck.x,puck.y,PUCK_R);g.addColorStop(0,'#fff');g.addColorStop(.35,'#d9faff');g.addColorStop(1,'#5bc7ec');ctx.fillStyle=g;ctx.beginPath();ctx.arc(puck.x,puck.y,R,0,Math.PI*2);ctx.fill();ctx.restore();
   }
   function drawParticles(list=particles){
     ctx.save();ctx.globalCompositeOperation='lighter';for(const p of list){ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.shadowBlur=12;ctx.shadowColor=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();}ctx.restore();ctx.globalAlpha=1;
   }
   function draw(){
     ctx.clearRect(0,0,W,H+PAD*2);ctx.save();ctx.translate(0,PAD);if(shake>0&&!reducedMotion)ctx.translate(rand(-4,4)*shake/.16,rand(-4,4)*shake/.16);drawTable();drawPuck();drawPaddle(bot,'#ff3fa4');drawPaddle(player,'#32e8ff');drawParticles();ctx.restore();
-    if(countdown>0&&state==='playing'){const n=Math.ceil(countdown);$('message').classList.remove('hidden');$('message').innerHTML=`<div class="callout" style="color:${scoreLabel.includes('Bot')?'#ff74ba':'#63efff'}">${scoreLabel||'Get ready'}<small>${n>3?'':n}</small></div>`;}
   }
   function frame(now){
     if(state!=='playing'){raf=0;return;}const dt=Math.min(.033,Math.max(0,(now-lastTime)/1000));lastTime=now;update(dt);draw();if(state==='playing')raf=requestAnimationFrame(frame);
@@ -590,11 +757,10 @@
   canvas.addEventListener('pointermove',e=>{
     if(locked||state!=='playing'||(e.pointerType==='mouse'&&!pointerActive)||(e.pointerType!=='mouse'&&!canvas.hasPointerCapture(e.pointerId)))return;
     const dx=e.clientX-pointerX,dy=e.clientY-pointerY;rememberPointer(e);
-    if(countdown>0||endDelay>0){e.preventDefault();return;}
     const r=canvas.getBoundingClientRect();player.tx+=dx/r.width*W;player.ty+=dy/r.height*(H+PAD*2);e.preventDefault();
   });
   canvas.addEventListener('pointerup',e=>{if(e.pointerType!=='mouse')pointerActive=false;e.preventDefault();});
-  addEventListener('mousemove',e=>{if(!locked||state!=='playing'||countdown>0||endDelay>0)return;const r=canvas.getBoundingClientRect();player.tx+=e.movementX/r.width*W;player.ty+=e.movementY/r.height*(H+PAD*2);});
+  addEventListener('mousemove',e=>{if(!locked||state!=='playing')return;const r=canvas.getBoundingClientRect();player.tx+=e.movementX/r.width*W;player.ty+=e.movementY/r.height*(H+PAD*2);});
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
   $('play-btn').onclick=startMatch;$('resume-btn').onclick=resumeGame;$('restart-btn').onclick=restartMatch;$('menu-btn').onclick=showMenu;$('end-menu-btn').onclick=showMenu;
