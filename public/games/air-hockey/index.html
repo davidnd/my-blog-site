@@ -137,11 +137,16 @@
   const mouthDip = x => clamp(Math.min(x - GOAL_L, W - GOAL_L - x) / 56, 0, 1) * 18;
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // discipline (0..1): how hard the bot is to lure out of its goal. At 1 it ignores a
+  // puck the player can still reach and guards the goal; at 0 it chases wherever the
+  // puck is drifting, so a soft pass toward your own side wall pulls it away. Tuned so
+  // the follow-up shot after that bait scores about 68% on Easy, 46% on Medium, 22% on
+  // Hard and 5% on Extremely Hard. Easy's bot is too slow for this number to matter much.
   const difficulty = {
-    easy:    { label:'Easy', speed:400,  accel:1100, reaction:.28,  error:52, predict:.42, attack:.42, home:124, strike:1.20, shot:1.00, minShot:.28, shotSpeed:1250 },
-    medium:  { label:'Medium', speed:650,  accel:1900, reaction:.13,  error:18, predict:.80, attack:.82, home:140, strike:1.42, shot:1.20, minShot:.55, shotSpeed:1450 },
-    hard:    { label:'Hard', speed:840,  accel:2700, reaction:.065, error:6,  predict:.96, attack:.97, home:150, strike:1.62, shot:1.45, minShot:.72, shotSpeed:1580 },
-    extreme: { label:'Extremely Hard',speed:1050,accel:3800, reaction:.032, error:1,  predict:1,   attack:1,   home:162, strike:1.80, shot:1.70, minShot:.90, shotSpeed:1700 }
+    easy:    { label:'Easy', speed:400,  accel:1100, reaction:.28,  error:52, predict:.42, attack:.42, home:124, strike:1.20, shot:1.00, minShot:.28, shotSpeed:1250, discipline:.8 },
+    medium:  { label:'Medium', speed:650,  accel:1900, reaction:.13,  error:18, predict:.80, attack:.82, home:140, strike:1.42, shot:1.20, minShot:.55, shotSpeed:1450, discipline:.25 },
+    hard:    { label:'Hard', speed:840,  accel:2700, reaction:.065, error:6,  predict:.96, attack:.97, home:150, strike:1.62, shot:1.45, minShot:.72, shotSpeed:1580, discipline:.35 },
+    extreme: { label:'Extremely Hard',speed:1050,accel:3800, reaction:.032, error:1,  predict:1,   attack:1,   home:162, strike:1.80, shot:1.70, minShot:.90, shotSpeed:1700, discipline:.55 }
   };
 
   let state = 'menu', previousState = 'menu', raf = 0, lastTime = 0;
@@ -262,19 +267,43 @@
     if(strong>.65)x=reflectedPuckX(x);
     return clamp(x,PADDLE_R,W-PADDLE_R);
   }
+  // 0..1: how much the puck's current path can be believed. While the puck is on
+  // the player's half the player can hit it again, so a slow puck drifting toward
+  // a side wall says nothing about where the next shot will go. The path only
+  // counts once the puck is past the player's reach, or will be before the player
+  // could plausibly get to it.
+  function pathTrust(approaching){
+    const reachLine=CENTER-PUCK_R;
+    if(puck.y<=reachLine)return 1;
+    if(!approaching)return 0;
+    const timeInReach=(puck.y-reachLine)/-puck.vy;
+    return clamp(1-(timeInReach-.12)/.38,0,1);
+  }
   function updateBot(dt){
     const d=difficulty[mode];botThink-=dt;botTacticTime-=dt;
     // After a hit, retreat until the puck has clearly separated. This prevents
     // the faster bot from catching and striking the same contact repeatedly.
-    if(!bot.contactArmed){botStriking=false;botTactic='recover';bot.tx=bot.x;bot.ty=d.home;moveBotPaddle(d,dt);return;}
+    // Back away from the puck itself (not just toward home): with the puck wedged
+    // between the paddle and a wall, standing still would hold it there forever.
+    if(!bot.contactArmed){
+      botStriking=false;botTactic='recover';
+      const awayX=bot.x-puck.x,awayY=bot.y-puck.y,away=hypot(awayX,awayY);
+      if(away>.001){bot.tx=clamp(bot.x+awayX/away*70,PADDLE_R,W-PADDLE_R);bot.ty=clamp(bot.y+awayY/away*70,PADDLE_R+6,CENTER-PADDLE_R);}
+      else{bot.tx=bot.x;bot.ty=d.home;}
+      moveBotPaddle(d,dt);return;
+    }
     if(botThink<=0){
       botThink=d.reaction*rand(.9,1.12);
       const inBot=puck.y<CENTER,approaching=puck.vy<-80,puckSpeed=hypot(puck.vx,puck.vy),gap=PADDLE_R+PUCK_R;
       const puckBehind=inBot&&puck.y<bot.y-6;
       const attackable=inBot&&puck.y>bot.y-gap*.25&&puckSpeed<MAX_PUCK_SPEED*.92;
+      // A disciplined bot believes the puck's path only as far as pathTrust says. A
+      // gullible one believes any puck coming its way (and a drifting one a little).
+      const gullible=1-d.discipline,earned=pathTrust(approaching);
+      const trust=earned+(1-earned)*gullible*(approaching?1:.26);
       botStriking=false;
       if(puckBehind){if(botTactic!=='clear'){botTactic='clear';botTacticTime=.5;}}
-      else if(approaching&&puck.y<CENTER+110){botTactic='intercept';botTacticTime=.28;}
+      else if(approaching&&puck.y<CENTER+110&&trust>.6){botTactic='intercept';botTacticTime=.28;}
       else if(attackable&&(botTactic==='attack'||Math.random()<d.attack)){botTactic='attack';botTacticTime=.42;}
       else if(botTactic==='clear'){botTactic='defend';botTacticTime=.2;}
       else if(botTacticTime<=0){
@@ -313,8 +342,12 @@
         }
         targetX+=rand(-d.error*.35,d.error*.35);
       }else{
+        // Goalkeeping: stand on the line between the puck and the middle of the goal,
+        // and lean toward where the puck is heading only as far as that path can be trusted.
         botTactic='defend';targetY=d.home;
-        targetX=lerp(W/2,predictAtY(d.home,d.predict*.78),approaching?.68:.18)+rand(-d.error*.3,d.error*.3);
+        const guardX=W/2+(puck.x-W/2)*(d.home/Math.max(puck.y,d.home)),predicted=predictAtY(d.home,d.predict*.78);
+        // A fully disciplined bot never leaves the goal mouth.
+        targetX=clamp(lerp(guardX,predicted,trust*.68),lerp(GOAL_L,PADDLE_R,gullible),lerp(W-GOAL_L,W-PADDLE_R,gullible))+rand(-d.error*.3,d.error*.3);
       }
       if(mode==='easy'&&Math.random()<.16)targetX+=rand(-105,105);
       botAimX=clamp(targetX,PADDLE_R,W-PADDLE_R);
@@ -338,7 +371,7 @@
   function movePaddle(p,tx,ty,maxSpeed,dt){
     const ox=p.x,oy=p.y,dx=tx-p.x,dy=ty-p.y,dist=hypot(dx,dy),step=Math.min(dist,maxSpeed*dt);
     if(dist>.001){p.x+=dx/dist*step;p.y+=dy/dist*step;}
-    p.vx=(p.x-ox)/dt;p.vy=(p.y-oy)/dt;
+    if(dt>0){p.vx=(p.x-ox)/dt;p.vy=(p.y-oy)/dt;}
   }
   function updatePlayer(dt){
     player.tx=clamp(player.tx,PADDLE_R,W-PADDLE_R);player.ty=clamp(player.ty,CENTER+PADDLE_R,H-PADDLE_R-6+mouthDip(player.tx));
@@ -387,31 +420,47 @@
       if(isBot)botStriking=false;
     }
   }
-  function collidePost(px,py){
+  function collidePost(px,py,audible=true){
     const dx=puck.x-px,dy=puck.y-py,ds=dx*dx+dy*dy;
     if(ds>=puck.r*puck.r)return false;
     const dist=Math.sqrt(ds)||.001,nx=dx/dist,ny=dy/dist;
     puck.x=px+nx*(puck.r+.4);puck.y=py+ny*(puck.r+.4);
     const into=puck.vx*nx+puck.vy*ny;
-    if(into<0){puck.vx-=1.94*into*nx;puck.vy-=1.94*into*ny;wallHit();}
+    if(into<0){puck.vx-=1.94*into*nx;puck.vy-=1.94*into*ny;wallHit(audible);}
     return true;
+  }
+  const inGoalMouth=x=>x>GOAL_L&&x<W-GOAL_L;
+  // Side walls, back walls and goal posts. Only the goal mouth is open.
+  function resolveWalls(audible){
+    const r=puck.r;
+    if(puck.x-r<0){puck.x=r;puck.vx=Math.abs(puck.vx)*.97;wallHit(audible);}
+    else if(puck.x+r>W){puck.x=W-r;puck.vx=-Math.abs(puck.vx)*.97;wallHit(audible);}
+    const top=puck.y-r<0,bottom=puck.y+r>H;
+    if(!top&&!bottom)return;
+    const wallY=top?0:H;
+    // The posts are the rounded ends of the back wall. Check the nearer one even when
+    // the puck's centre is inside the mouth, so it cannot pass half its body through.
+    if(collidePost(puck.x<W/2?GOAL_L:W-GOAL_L,wallY,audible)){
+      // Bounced off the outer face of a post: stay on the table side of the wall.
+      if(!inGoalMouth(puck.x))puck.y=top?Math.max(puck.y,r):Math.min(puck.y,H-r);
+      return;
+    }
+    if(!inGoalMouth(puck.x)){puck.y=top?r:H-r;puck.vy=(top?1:-1)*Math.abs(puck.vy)*.97;wallHit(audible);}
   }
   function physics(dt){
     const steps=Math.max(1,Math.ceil(dt/(1/240))),sd=dt/steps;
     for(let i=0;i<steps;i++){
       puck.x+=puck.vx*sd;puck.y+=puck.vy*sd;
       const friction=Math.pow(.993,sd*60);puck.vx*=friction;puck.vy*=friction;
-      if(puck.x-puck.r<0){puck.x=puck.r;puck.vx=Math.abs(puck.vx)*.97;wallHit();}
-      else if(puck.x+puck.r>W){puck.x=W-puck.r;puck.vx=-Math.abs(puck.vx)*.97;wallHit();}
-      const inMouth=puck.x>GOAL_L&&puck.x<W-GOAL_L;
-      if(!inMouth&&puck.y-puck.r<0){
-        if(!collidePost(puck.x<W/2?GOAL_L:W-GOAL_L,0)){puck.y=puck.r;puck.vy=Math.abs(puck.vy)*.97;wallHit();}
-      }else if(!inMouth&&puck.y+puck.r>H){
-        if(!collidePost(puck.x<W/2?GOAL_L:W-GOAL_L,H)){puck.y=H-puck.r;puck.vy=-Math.abs(puck.vy)*.97;wallHit();}
-      }
+      resolveWalls(true);
       collidePaddle(player);collidePaddle(bot);
-      if(puck.y<-6){score(true);return;}
-      if(puck.y>H+6){score(false);return;}
+      // A paddle can shove the puck into a wall. Put it back so it never leaves
+      // through one (silently: no sound or sparks); only the goal mouth is open.
+      resolveWalls(false);
+      if(inGoalMouth(puck.x)){
+        if(puck.y<-6){score(true);return;}
+        if(puck.y>H+6){score(false);return;}
+      }
     }
     let speed=hypot(puck.vx,puck.vy);
     if(speed>0&&speed<370){puck.vx=puck.vx/speed*370;puck.vy=puck.vy/speed*370;speed=370;}
@@ -421,7 +470,7 @@
     if(stuckTime>.45){puck.vx=(puck.x<W/2?1:-1)*Math.max(150,Math.abs(puck.vx));puck.vy+=(Math.random()<.5?-1:1)*95;stuckTime=0;}
   }
   let wallSoundWait=0;
-  function wallHit(){if(wallSoundWait<=0){tone(190,.045,'triangle',.035);burst(puck.x,puck.y,'#b8f7ff',4,140);wallSoundWait=.055;}}
+  function wallHit(audible=true){if(audible&&wallSoundWait<=0){tone(190,.045,'triangle',.035);burst(puck.x,puck.y,'#b8f7ff',4,140);wallSoundWait=.055;}}
 
   function burst(x,y,color,count,speed){
     const room=160-particles.length;count=Math.min(count,Math.max(0,room));
